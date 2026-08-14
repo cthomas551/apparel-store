@@ -30,6 +30,8 @@ type SheetProduct = {
   name: string;
   price: string;
   imageUrl: string;
+  // Optional — accepted so callers can pass it, but not rendered here.
+  description?: string;
 };
 
 const SIZES: Size[] = ["S", "M", "L", "XL"];
