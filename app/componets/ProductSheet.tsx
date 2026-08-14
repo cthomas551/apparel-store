@@ -13,6 +13,8 @@ type SheetProduct = {
   name: string;
   price: string;
   images: SheetImage[];
+  description?: string;
+  details?: { label: string; value: string }[];
 };
 
 const SIZES: Size[] = ["S", "M", "L", "XL"];
@@ -34,16 +36,14 @@ export default function ProductSheet({
   const galleryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const raf = requestAnimationFrame(() => setMounted(true));
-    const gallery = galleryRef.current;
-    return () => {
-      cancelAnimationFrame(raf);
-      setMounted(false);
-      setSelectedSize(null);
-      setActiveImage(0);
-      gallery?.scrollTo({ left: 0 });
-    };
+    if (isOpen) {
+      const raf = requestAnimationFrame(() => setMounted(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setMounted(false);
+    setSelectedSize(null);
+    setActiveImage(0);
+    galleryRef.current?.scrollTo({ left: 0 });
   }, [isOpen]);
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function ProductSheet({
           </svg>
         </button>
 
-        <div className="relative w-full aspect-[4/5] bg-[#0A0A0A]">
+        <div className="relative w-full h-48 bg-[#0A0A0A]">
           <div
             ref={galleryRef}
             onScroll={(e) => {
@@ -103,7 +103,7 @@ export default function ProductSheet({
               <div
                 key={image.src + i}
                 className="relative h-full w-full shrink-0 snap-start"
-                style={{ backgroundColor: image.fit === "contain" ? "#FFFFFF" : "#0A0A0A" }}
+                style={{ backgroundColor: image.fit === "contain" ? "#FAFAF8" : "#0A0A0A" }}
               >
                 <img
                   src={image.src}
@@ -139,6 +139,25 @@ export default function ProductSheet({
               {product.price}
             </span>
           </div>
+
+          {product.description && (
+            <p className="text-[13px] leading-relaxed text-[#141414]/70">
+              {product.description}
+            </p>
+          )}
+
+          {product.details && product.details.length > 0 && (
+            <div className="flex flex-col divide-y divide-[#E2E1DD] border-y border-[#E2E1DD]">
+              {product.details.map((row) => (
+                <div key={row.label} className="flex items-center justify-between py-2.5">
+                  <span className="text-[11px] tracking-[0.2em] uppercase text-[#141414]/45">
+                    {row.label}
+                  </span>
+                  <span className="text-[13px] text-[#141414]/80">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-col gap-2.5">
             <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">

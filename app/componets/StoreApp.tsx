@@ -18,7 +18,8 @@ type Product = {
   imageUrl?: string;
   imageFit?: "cover" | "contain";
   monochrome?: boolean;
-  gallery?: GalleryImage[];
+  gallery?: GalleryImage[];description?: string;
+  details?: { label: string; value: string }[];
 };
 
 const PRODUCTS: Product[] = [
@@ -36,6 +37,11 @@ const PRODUCTS: Product[] = [
       { src: "/products/think-about-it-set.png", fit: "cover" },
       { src: "/products/Tee.png", fit: "contain" }
      ,{ src: "/products/Shorts.png", fit: "contain" },
+    ],description: "An oversized graffiti-print tee and matching shorts, cut relaxed and finished with a heavyweight cotton fleece.",
+    details: [
+      { label: "Fabric", value: "100% cotton fleece" },
+      { label: "Fit", value: "Oversized" },
+      { label: "Care", value: "Machine wash cold" },
     ],  
   },
   {
@@ -482,6 +488,8 @@ export default function StoreApp() {
           product={{
             name: selectedProduct.name,
             price: selectedProduct.price,
+            description: selectedProduct.description,
+            details: selectedProduct. details,
             images:
               selectedProduct.gallery ??
               [
