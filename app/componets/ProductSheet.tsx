@@ -30,8 +30,10 @@ type SheetProduct = {
   name: string;
   price: string;
   imageUrl: string;
-  // Optional — accepted so callers can pass it, but not rendered here.
-  description?: string;
+  // Index signature: callers (like StoreApp.tsx) can pass extra fields
+  // (description, details, etc.) without breaking the build. This
+  // component only reads name/price/imageUrl; anything else is ignored.
+  [key: string]: unknown;
 };
 
 const SIZES: Size[] = ["S", "M", "L", "XL"];
