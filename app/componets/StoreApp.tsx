@@ -214,8 +214,8 @@ export default function StoreApp() {
 
   return (
     <>
-      <div className="md:hidden min-h-screen w-full bg-[#F4F2ED] flex justify-center">
-        <div className="relative w-full max-w-md h-screen bg-[#FAFAF8] text-[#141414] overflow-hidden">
+      <div className="md:hidden min-h-dvh w-full bg-[#F4F2ED] flex justify-center">
+        <div className="relative w-full max-w-md h-dvh bg-[#FAFAF8] text-[#141414] overflow-hidden">
           <header
             className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 pt-6 pb-4 transition-colors ${
               PRODUCTS[activeIndex]?.imageUrl && PRODUCTS[activeIndex]?.imageFit !== "contain"
