@@ -1,20 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+/**
+ * ProductSheet — a sliding bottom-sheet modal for product detail.
+ *
+ * Usage:
+ *   const [open, setOpen] = useState(false);
+ *   <ProductSheet
+ *     product={product}
+ *     isOpen={open}
+ *     onClose={() => setOpen(false)}
+ *     onAddToBag={(size) => { ... }}
+ *   />
+ *
+ * Layout notes:
+ * - The whole sheet is capped to 92dvh so it can never grow taller than the
+ *   screen, on any browser (in-app or otherwise).
+ * - Image + title/size are in a scrollable region; the Add to Bag button
+ *   is pinned in its own footer OUTSIDE that scroll area, so it's always
+ *   visible no matter how tall the image renders.
+ * - Image height is a fixed 38dvh (not an aspect ratio), so it can't grow
+ *   taller than intended on narrow/tall phone screens.
+ */
+
+import { useEffect, useState } from "react";
 
 type Size = "S" | "M" | "L" | "XL";
-
-type SheetImage = {
-  src: string;
-  fit?: "cover" | "contain";
-};
 
 type SheetProduct = {
   name: string;
   price: string;
-  images: SheetImage[];
-  description?: string;
-  details?: { label: string; value: string }[];
+  imageUrl: string;
 };
 
 const SIZES: Size[] = ["S", "M", "L", "XL"];
@@ -32,8 +47,6 @@ export default function ProductSheet({
 }) {
   const [selectedSize, setSelectedSize] = useState<Size | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [activeImage, setActiveImage] = useState(0);
-  const galleryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -42,8 +55,6 @@ export default function ProductSheet({
     }
     setMounted(false);
     setSelectedSize(null);
-    setActiveImage(0);
-    galleryRef.current?.scrollTo({ left: 0 });
   }, [isOpen]);
 
   useEffect(() => {
@@ -58,7 +69,8 @@ export default function ProductSheet({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex justify-center">
+      {/* Backdrop */}
       <button
         aria-label="Close"
         onClick={onClose}
@@ -67,18 +79,21 @@ export default function ProductSheet({
         }`}
       />
 
+      {/* Sheet — capped to 92dvh, flex column, footer pinned outside scroll */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={product.name}
-        className={`relative w-full max-w-md md:max-w-lg max-h-[90dvh] bg-[#FAFAF8] rounded-t-3xl md:rounded-3xl overflow-hidden flex flex-col transition-transform duration-300 ease-out ${
+        className={`absolute bottom-0 w-full max-w-md max-h-[92dvh] bg-[#FAFAF8] rounded-t-3xl overflow-hidden flex flex-col transition-transform duration-300 ease-out ${
           mounted ? "translate-y-0" : "translate-y-full"
         }`}
       >
+        {/* Drag handle */}
         <div className="absolute top-2.5 left-0 right-0 z-10 flex justify-center">
           <span className="h-1 w-9 rounded-full bg-[#FAFAF8]/70" />
         </div>
 
+        {/* Close */}
         <button
           onClick={onClose}
           aria-label="Close"
@@ -89,108 +104,59 @@ export default function ProductSheet({
           </svg>
         </button>
 
-        <div className="relative w-full aspect-[4/3] bg-[#0A0A0A]">
-          <div
-            ref={galleryRef}
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              const index = Math.round(el.scrollLeft / el.clientWidth);
-              setActiveImage(index);
-            }}
-            className="h-full w-full flex overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {product.images.map((image, i) => (
-              <div
-                key={image.src + i}
-                className="relative h-full w-full shrink-0 snap-start"
-                style={{ backgroundColor: image.fit === "contain" ? "#FAFAF8" : "#0A0A0A" }}
-              >
-                <img
-                  src={image.src}
-                  alt={`${product.name} — photo ${i + 1} of ${product.images.length}`}
-                  className={`h-full w-full ${image.fit === "contain" ? "object-contain" : "object-cover"}`}
-                />
-              </div>
-            ))}
+        {/* Scrollable region: image + details */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <div className="relative w-full h-[38dvh] min-h-[220px] bg-[#0A0A0A]">
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
 
-          {product.images.length > 1 && (
-            <div className="absolute bottom-3 left-0 right-0 flex justify-center">
-              <div className="flex gap-1.5 px-2 py-1 rounded-full bg-black/25 backdrop-blur-sm">
-                {product.images.map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === activeImage ? "w-4 bg-[#FAFAF8]/90" : "w-1.5 bg-[#FAFAF8]/50"
-                    }`}
-                  />
-                ))}
+          <div className="px-6 pt-5 pb-6 flex flex-col gap-6">
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="font-serif text-2xl leading-snug text-[#141414]">
+                {product.name}
+              </h2>
+              <span className="pt-1 text-[13px] tracking-widest text-[#141414]/70 whitespace-nowrap">
+                {product.price}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
+                Size
+              </span>
+              <div className="flex gap-2.5">
+                {SIZES.map((size) => {
+                  const active = selectedSize === size;
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      aria-pressed={active}
+                      className={`h-11 flex-1 rounded-full border text-[13px] tracking-wide transition-colors ${
+                        active
+                          ? "border-[#141414] bg-[#141414] text-[#FAFAF8]"
+                          : "border-[#E2E1DD] text-[#141414]/80 hover:border-[#141414]/40"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-4">
-            <h2 className="font-serif text-2xl leading-snug text-[#141414]">
-              {product.name}
-            </h2>
-            <span className="pt-1 text-[13px] tracking-widest text-[#141414]/70 whitespace-nowrap">
-              {product.price}
-            </span>
-          </div>
-
-          {product.description && (
-            <p className="text-[13px] leading-snug text-[#141414]/70">
-              {product.description}
-            </p>
-          )}
-
-          {product.details && product.details.length > 0 && (
-            <div className="grid grid-cols-3 gap-px bg-[#E2E1DD] border-y border-[#E2E1DD]">
-              {product.details.map((row) => (
-                <div
-                  key={row.label}
-                  className="bg-[#FAFAF8] py-2 px-1 flex flex-col items-center gap-0.5 text-center"
-                >
-                  <span className="text-[9px] tracking-[0.15em] uppercase text-[#141414]/45">
-                    {row.label}
-                  </span>
-                  <span className="text-[11px] text-[#141414]/80 leading-tight">{row.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="shrink-0 border-t border-[#E2E1DD] px-6 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] flex flex-col gap-2 bg-[#FAFAF8]">
-          <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
-            Size
-          </span>
-          <div className="flex gap-2.5">
-            {SIZES.map((size) => {
-              const active = selectedSize === size;
-              return (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  aria-pressed={active}
-                  className={`h-10 flex-1 rounded-full border text-[13px] tracking-wide transition-colors ${
-                    active
-                      ? "border-[#141414] bg-[#141414] text-[#FAFAF8]"
-                      : "border-[#E2E1DD] text-[#141414]/80 hover:border-[#141414]/40"
-                  }`}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
-
+        {/* Pinned footer — outside the scroll area, always visible */}
+        <div className="shrink-0 border-t border-[#E2E1DD] px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#FAFAF8]">
           <button
             disabled={!selectedSize}
             onClick={() => selectedSize && onAddToBag(selectedSize)}
-            className={`h-12 mt-1 rounded-full text-[11px] tracking-[0.24em] uppercase transition-colors ${
+            className={`w-full h-13 py-3.5 rounded-full text-[11px] tracking-[0.24em] uppercase transition-colors ${
               selectedSize
                 ? "bg-[#141414] text-[#FAFAF8] hover:bg-[#141414]/90"
                 : "bg-[#141414]/15 text-[#141414]/40 cursor-not-allowed"
