@@ -130,7 +130,7 @@ export default function ProductSheet({
           )}
         </div>
 
-        <div className="px-6 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] flex flex-col gap-4 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-4">
             <h2 className="font-serif text-2xl leading-snug text-[#141414]">
               {product.name}
@@ -161,36 +161,36 @@ export default function ProductSheet({
               ))}
             </div>
           )}
+        </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
-              Size
-            </span>
-            <div className="flex gap-2.5">
-              {SIZES.map((size) => {
-                const active = selectedSize === size;
-                return (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    aria-pressed={active}
-                    className={`h-11 flex-1 rounded-full border text-[13px] tracking-wide transition-colors ${
-                      active
-                        ? "border-[#141414] bg-[#141414] text-[#FAFAF8]"
-                        : "border-[#E2E1DD] text-[#141414]/80 hover:border-[#141414]/40"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="shrink-0 border-t border-[#E2E1DD] px-6 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] flex flex-col gap-2 bg-[#FAFAF8]">
+          <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
+            Size
+          </span>
+          <div className="flex gap-2.5">
+            {SIZES.map((size) => {
+              const active = selectedSize === size;
+              return (
+                <button
+                  key={size}
+                  onClick={() => setSelectedSize(size)}
+                  aria-pressed={active}
+                  className={`h-10 flex-1 rounded-full border text-[13px] tracking-wide transition-colors ${
+                    active
+                      ? "border-[#141414] bg-[#141414] text-[#FAFAF8]"
+                      : "border-[#E2E1DD] text-[#141414]/80 hover:border-[#141414]/40"
+                  }`}
+                >
+                  {size}
+                </button>
+              );
+            })}
           </div>
 
           <button
             disabled={!selectedSize}
             onClick={() => selectedSize && onAddToBag(selectedSize)}
-            className={`h-13 py-3.5 rounded-full text-[11px] tracking-[0.24em] uppercase transition-colors ${
+            className={`h-12 mt-1 rounded-full text-[11px] tracking-[0.24em] uppercase transition-colors ${
               selectedSize
                 ? "bg-[#141414] text-[#FAFAF8] hover:bg-[#141414]/90"
                 : "bg-[#141414]/15 text-[#141414]/40 cursor-not-allowed"
