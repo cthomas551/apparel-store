@@ -71,7 +71,7 @@ export default function ProductSheet({
         role="dialog"
         aria-modal="true"
         aria-label={product.name}
-        className={`relative w-full max-w-md md:max-w-lg max-h-[90vh] bg-[#FAFAF8] rounded-t-3xl md:rounded-3xl overflow-hidden flex flex-col transition-transform duration-300 ease-out ${
+        className={`relative w-full max-w-md md:max-w-lg max-h-[90dvh] bg-[#FAFAF8] rounded-t-3xl md:rounded-3xl overflow-hidden flex flex-col transition-transform duration-300 ease-out ${
           mounted ? "translate-y-0" : "translate-y-full"
         }`}
       >
@@ -130,7 +130,7 @@ export default function ProductSheet({
           )}
         </div>
 
-        <div className="px-6 pt-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex flex-col gap-6 overflow-y-auto">
+        <div className="px-6 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] flex flex-col gap-4 overflow-y-auto">
           <div className="flex items-start justify-between gap-4">
             <h2 className="font-serif text-2xl leading-snug text-[#141414]">
               {product.name}
@@ -141,25 +141,28 @@ export default function ProductSheet({
           </div>
 
           {product.description && (
-            <p className="text-[13px] leading-relaxed text-[#141414]/70">
+            <p className="text-[13px] leading-snug text-[#141414]/70">
               {product.description}
             </p>
           )}
 
           {product.details && product.details.length > 0 && (
-            <div className="flex flex-col divide-y divide-[#E2E1DD] border-y border-[#E2E1DD]">
+            <div className="grid grid-cols-3 gap-px bg-[#E2E1DD] border-y border-[#E2E1DD]">
               {product.details.map((row) => (
-                <div key={row.label} className="flex items-center justify-between py-2.5">
-                  <span className="text-[11px] tracking-[0.2em] uppercase text-[#141414]/45">
+                <div
+                  key={row.label}
+                  className="bg-[#FAFAF8] py-2 px-1 flex flex-col items-center gap-0.5 text-center"
+                >
+                  <span className="text-[9px] tracking-[0.15em] uppercase text-[#141414]/45">
                     {row.label}
                   </span>
-                  <span className="text-[13px] text-[#141414]/80">{row.value}</span>
+                  <span className="text-[11px] text-[#141414]/80 leading-tight">{row.value}</span>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
               Size
             </span>
