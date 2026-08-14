@@ -152,7 +152,7 @@ export default function ProductSheet({
                   <img
                     src={imgSrc(img)}
                     alt={img.alt ?? product.name}
-                    className="absolute inset-0 h-full w-full object-cover"
+                    className="absolute inset-0 h-full w-full object-cover object-top"
                   />
                 </div>
               ))}
