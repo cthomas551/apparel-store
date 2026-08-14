@@ -89,7 +89,7 @@ export default function ProductSheet({
           </svg>
         </button>
 
-        <div className="relative w-full h-48 bg-[#0A0A0A]">
+        <div className="relative w-full aspect-[4/3] bg-[#0A0A0A]">
           <div
             ref={galleryRef}
             onScroll={(e) => {
