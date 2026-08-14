@@ -14,29 +14,46 @@
  *
  * Layout notes:
  * - The whole sheet is capped to 92dvh so it can never grow taller than the
- *   screen, on any browser (in-app or otherwise).
- * - Image + title/size are in a scrollable region; the Add to Bag button
- *   is pinned in its own footer OUTSIDE that scroll area, so it's always
- *   visible no matter how tall the image renders.
- * - Image height is a fixed 38dvh (not an aspect ratio), so it can't grow
- *   taller than intended on narrow/tall phone screens.
+ *   screen, on any browser (in-app or otherwise) — this was the root cause
+ *   of the "image too big, button cut off" bug.
+ * - Image gallery + description/details/size are in a scrollable region;
+ *   the Add to Bag button is pinned in its own footer OUTSIDE that scroll
+ *   area, so it's always visible no matter how tall the gallery renders.
+ * - Gallery image height is a fixed 38dvh (not an aspect ratio), so it
+ *   can't grow taller than intended on narrow/tall phone screens.
  */
 
-import { useEffect, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 
 type Size = "S" | "M" | "L" | "XL";
+
+// Accepts either `url` or `src` since the exact field name from the
+// original gallery type wasn't visible when this was rebuilt — both are
+// checked at render time.
+type GalleryImage = {
+  url?: string;
+  src?: string;
+  alt?: string;
+};
+
+type ProductDetail = {
+  label: string;
+  value: string;
+};
 
 type SheetProduct = {
   name: string;
   price: string;
-  imageUrl: string;
-  // Index signature: callers (like StoreApp.tsx) can pass extra fields
-  // (description, details, etc.) without breaking the build. This
-  // component only reads name/price/imageUrl; anything else is ignored.
-  [key: string]: unknown;
+  images: GalleryImage[];
+  description?: string;
+  details?: ProductDetail[];
 };
 
 const SIZES: Size[] = ["S", "M", "L", "XL"];
+
+function imgSrc(img: GalleryImage): string {
+  return img.url ?? img.src ?? "";
+}
 
 export default function ProductSheet({
   product,
@@ -51,6 +68,8 @@ export default function ProductSheet({
 }) {
   const [selectedSize, setSelectedSize] = useState<Size | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [activeImage, setActiveImage] = useState(0);
+  const galleryRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -59,6 +78,7 @@ export default function ProductSheet({
     }
     setMounted(false);
     setSelectedSize(null);
+    setActiveImage(0);
   }, [isOpen]);
 
   useEffect(() => {
@@ -71,6 +91,15 @@ export default function ProductSheet({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const images = product.images?.length ? product.images : [];
+
+  function handleGalleryScroll() {
+    const el = galleryRef.current;
+    if (!el) return;
+    const index = Math.round(el.scrollLeft / el.clientWidth);
+    setActiveImage(index);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center">
@@ -108,14 +137,39 @@ export default function ProductSheet({
           </svg>
         </button>
 
-        {/* Scrollable region: image + details */}
+        {/* Scrollable region: gallery + description + details + size */}
         <div className="overflow-y-auto flex-1 min-h-0">
+          {/* Image gallery — fixed height, horizontal snap-scroll, dot indicators */}
           <div className="relative w-full h-[38dvh] min-h-[220px] bg-[#0A0A0A]">
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <div
+              ref={galleryRef}
+              onScroll={handleGalleryScroll}
+              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {images.map((img, i) => (
+                <div key={i} className="relative h-full w-full flex-shrink-0 snap-center">
+                  <img
+                    src={imgSrc(img)}
+                    alt={img.alt ?? product.name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {images.length > 1 && (
+              <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+                {images.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-1.5 rounded-full transition-all ${
+                      i === activeImage ? "w-4 bg-white" : "w-1.5 bg-white/50"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="px-6 pt-5 pb-6 flex flex-col gap-6">
@@ -127,6 +181,22 @@ export default function ProductSheet({
                 {product.price}
               </span>
             </div>
+
+            {product.description && (
+              <p className="text-[14px] leading-relaxed text-[#141414]/70">
+                {product.description}
+              </p>
+            )}
+
+            {product.details && product.details.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 border-y border-[#E2E1DD] py-3">
+                {product.details.map((d, i) => (
+                  <div key={i} className="text-center">
+                    <span className="text-[12px] text-[#141414]/70">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex flex-col gap-2.5">
               <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
