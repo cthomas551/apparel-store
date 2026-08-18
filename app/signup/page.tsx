@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import AuthLayout, { GoogleIcon } from "../componets/AuthLayout";
+import PasswordChecklist from "../componets/PasswordChecklist";
+import { getPasswordChecks, isPasswordValid } from "@/lib/passwordRules";
 
 const inputClass =
   "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
@@ -18,9 +20,17 @@ export default function SignupPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const passwordChecks = getPasswordChecks(password, email);
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!isPasswordValid(password, email)) {
+      setError("Please meet all password requirements below.");
+      return;
+    }
+
     setLoading(true);
 
     const { data, error } = await supabase.auth.signUp({ email, password });
@@ -86,11 +96,12 @@ export default function SignupPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 6 characters"
+            placeholder="At least 12 characters"
             required
-            minLength={6}
+            minLength={12}
             className={inputClass}
           />
+          <PasswordChecklist checks={passwordChecks} />
         </div>
 
         {error && (
@@ -101,7 +112,7 @@ export default function SignupPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !isPasswordValid(password, email)}
           className="w-full rounded-lg bg-[#141414] py-3 text-[12px] font-medium uppercase tracking-[0.18em] text-[#FAFAF8] transition-colors hover:bg-[#141414]/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Signing up..." : "Sign up"}

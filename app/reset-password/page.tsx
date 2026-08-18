@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AuthLayout from "../componets/AuthLayout";
+import PasswordChecklist from "../componets/PasswordChecklist";
+import { getPasswordChecks, isPasswordValid } from "@/lib/passwordRules";
 
 const inputClass =
   "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
@@ -14,19 +16,29 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [hasSession, setHasSession] = useState(false);
+  const [email, setEmail] = useState("");
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setHasSession(!!data.user);
+      setEmail(data.user?.email ?? "");
       setCheckingSession(false);
     });
   }, [supabase]);
 
+  const passwordChecks = getPasswordChecks(password, email);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!isPasswordValid(password, email)) {
+      setError("Please meet all password requirements below.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.updateUser({ password });
@@ -75,11 +87,12 @@ export default function ResetPasswordPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 6 characters"
+            placeholder="At least 12 characters"
             required
-            minLength={6}
+            minLength={12}
             className={inputClass}
           />
+          <PasswordChecklist checks={passwordChecks} />
         </div>
 
         {error && (
@@ -90,7 +103,7 @@ export default function ResetPasswordPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !isPasswordValid(password, email)}
           className="w-full rounded-lg bg-[#141414] py-3 text-[12px] font-medium uppercase tracking-[0.18em] text-[#FAFAF8] transition-colors hover:bg-[#141414]/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Saving..." : "Save new password"}
