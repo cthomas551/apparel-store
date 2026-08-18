@@ -32,7 +32,7 @@ export function getPasswordChecks(password: string, email: string): PasswordChec
   const emailLocal = email.split("@")[0]?.toLowerCase().trim() ?? "";
 
   return [
-    { id: "length", label: "At least 12 characters", passed: password.length >= 12 },
+    { id: "length", label: "At least 6 characters", passed: password.length >= 6 },
     { id: "uppercase", label: "One uppercase letter", passed: /[A-Z]/.test(password) },
     { id: "lowercase", label: "One lowercase letter", passed: /[a-z]/.test(password) },
     { id: "number", label: "One number", passed: /[0-9]/.test(password) },

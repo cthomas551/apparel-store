@@ -96,9 +96,9 @@ export default function SignupPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 12 characters"
+            placeholder="At least 6 characters"
             required
-            minLength={12}
+            minLength={6}
             className={inputClass}
           />
           <PasswordChecklist checks={passwordChecks} />
