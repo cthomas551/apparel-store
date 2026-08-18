@@ -4,7 +4,9 @@
       "Bash(rm -f \"c:/Users/cthom/Desktop/apparel-store/.tmp-desktop-check.mjs\")",
       "Bash(rm -rf \"c:/Users/cthom/Desktop/apparel-store/.tmp-screens\")",
       "Bash(npx tsc *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash",
+      "PowerShell"
     ]
   }
 }

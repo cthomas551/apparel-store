@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import ProductSheet from "./ProductSheet";
 import CartModal, { type CartItem } from "./CartModal";
 
@@ -184,6 +187,15 @@ function IconBag({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+function IconUser({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.4}>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 20 C5 15.5 8 13 12 13 C16 13 19 15.5 19 20" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 type Tab = "home" | "collection" | "bag";
 
 export default function StoreApp() {
@@ -193,10 +205,25 @@ export default function StoreApp() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const bagCount = bagItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const feedRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const root = feedRef.current;
@@ -373,6 +400,12 @@ export default function StoreApp() {
                 icon={<IconBag />}
                 badge={bagCount > 0 ? bagCount : undefined}
               />
+              <NavButton
+                label="Profile"
+                active={false}
+                href={user ? "/profile" : "/login"}
+                icon={<IconUser />}
+              />
             </div>
           </nav>
         </div>
@@ -409,6 +442,13 @@ export default function StoreApp() {
               >
                 <IconSearch />
               </button>
+              <Link
+                href={user ? "/profile" : "/login"}
+                aria-label={user ? "Profile" : "Log in"}
+                className="text-[#141414]/70 hover:text-[#141414] transition-colors"
+              >
+                <IconUser />
+              </Link>
               <button
                 aria-label="Bag"
                 onClick={() => {
@@ -571,21 +611,22 @@ function NavButton({
   icon,
   active,
   onClick,
+  href,
   badge,
 }: {
   label: string;
   icon: React.ReactNode;
   active: boolean;
-  onClick: () => void;
+  onClick?: () => void;
+  href?: string;
   badge?: number;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex flex-col items-center gap-1.5 transition-colors ${
-        active ? "text-[#141414]" : "text-[#141414]/40"
-      }`}
-    >
+  const className = `relative flex flex-col items-center gap-1.5 transition-colors ${
+    active ? "text-[#141414]" : "text-[#141414]/40"
+  }`;
+
+  const content = (
+    <>
       {icon}
       {badge !== undefined && (
         <span className="absolute -top-1 -right-2 h-3.5 w-3.5 rounded-full bg-[#141414] text-[#FAFAF8] text-[9px] leading-[14px] text-center">
@@ -593,6 +634,20 @@ function NavButton({
         </span>
       )}
       <span className="text-[9px] tracking-[0.2em] uppercase">{label}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button onClick={onClick} className={className}>
+      {content}
     </button>
   );
 }

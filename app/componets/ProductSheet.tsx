@@ -72,13 +72,14 @@ export default function ProductSheet({
   const galleryRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      const raf = requestAnimationFrame(() => setMounted(true));
-      return () => cancelAnimationFrame(raf);
-    }
-    setMounted(false);
-    setSelectedSize(null);
-    setActiveImage(0);
+    if (!isOpen) return;
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => {
+      cancelAnimationFrame(raf);
+      setMounted(false);
+      setSelectedSize(null);
+      setActiveImage(0);
+    };
   }, [isOpen]);
 
   useEffect(() => {
