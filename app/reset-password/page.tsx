@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import AuthLayout from "../componets/AuthLayout";
 import PasswordChecklist from "../componets/PasswordChecklist";
 import { getPasswordChecks, isPasswordValid } from "@/lib/passwordRules";
+import { friendlyAuthError } from "@/lib/authValidation";
 
 const inputClass =
   "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
@@ -46,7 +47,7 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      setError(friendlyAuthError(error.message).message);
       return;
     }
 

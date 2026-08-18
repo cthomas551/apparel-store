@@ -7,24 +7,38 @@ import { createClient } from "@/lib/supabase/client";
 import AuthLayout, { GoogleIcon } from "../componets/AuthLayout";
 import PasswordChecklist from "../componets/PasswordChecklist";
 import { getPasswordChecks, isPasswordValid } from "@/lib/passwordRules";
+import { isValidEmail, friendlyAuthError } from "@/lib/authValidation";
 
-const inputClass =
-  "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
+const baseInputClass =
+  "w-full rounded-lg border bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none transition-colors";
+const normalBorder = "border-[#E2E1DD] focus:border-[#141414]";
+const errorBorder = "border-red-400 focus:border-red-500";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailErrorFromServer, setEmailErrorFromServer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   const passwordChecks = getPasswordChecks(password, email);
+  const emailFormatError =
+    emailTouched && email.length > 0 && !isValidEmail(email) ? "Enter a valid email address." : null;
+  const emailInError = Boolean(emailFormatError) || emailErrorFromServer;
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setEmailErrorFromServer(false);
+
+    if (!isValidEmail(email)) {
+      setEmailTouched(true);
+      return;
+    }
 
     if (!isPasswordValid(password, email)) {
       setError("Please meet all password requirements below.");
@@ -38,7 +52,9 @@ export default function SignupPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      const friendly = friendlyAuthError(error.message);
+      setError(friendly.message);
+      setEmailErrorFromServer(friendly.field === "email");
       return;
     }
 
@@ -80,11 +96,17 @@ export default function SignupPage() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setEmailErrorFromServer(false);
+              setError(null);
+            }}
+            onBlur={() => setEmailTouched(true)}
             placeholder="you@example.com"
             required
-            className={inputClass}
+            className={`${baseInputClass} ${emailInError ? errorBorder : normalBorder}`}
           />
+          {emailFormatError && <p className="mt-1.5 text-[12px] text-red-600">{emailFormatError}</p>}
         </div>
 
         <div>
@@ -99,7 +121,7 @@ export default function SignupPage() {
             placeholder="At least 6 characters"
             required
             minLength={6}
-            className={inputClass}
+            className={`${baseInputClass} ${normalBorder}`}
           />
           <PasswordChecklist checks={passwordChecks} />
         </div>

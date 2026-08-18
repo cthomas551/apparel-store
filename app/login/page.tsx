@@ -5,21 +5,36 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import AuthLayout, { GoogleIcon } from "../componets/AuthLayout";
+import { isValidEmail, friendlyAuthError, type AuthErrorField } from "@/lib/authValidation";
 
-const inputClass =
-  "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
+const baseInputClass =
+  "w-full rounded-lg border bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none transition-colors";
+const normalBorder = "border-[#E2E1DD] focus:border-[#141414]";
+const errorBorder = "border-red-400 focus:border-red-500";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<AuthErrorField | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
+  const emailFormatError =
+    emailTouched && email.length > 0 && !isValidEmail(email) ? "Enter a valid email address." : null;
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorField(null);
+
+    if (!isValidEmail(email)) {
+      setEmailTouched(true);
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -27,7 +42,9 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      const friendly = friendlyAuthError(error.message);
+      setError(friendly.message);
+      setErrorField(friendly.field ?? null);
       return;
     }
 
@@ -41,6 +58,9 @@ export default function LoginPage() {
     });
   }
 
+  const emailInError = Boolean(emailFormatError) || errorField === "email" || errorField === "both";
+  const passwordInError = errorField === "password" || errorField === "both";
+
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to continue to your account.">
       <form onSubmit={handleLogin} className="flex flex-col gap-5">
@@ -52,11 +72,17 @@ export default function LoginPage() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError(null);
+              setErrorField(null);
+            }}
+            onBlur={() => setEmailTouched(true)}
             placeholder="you@example.com"
             required
-            className={inputClass}
+            className={`${baseInputClass} ${emailInError ? errorBorder : normalBorder}`}
           />
+          {emailFormatError && <p className="mt-1.5 text-[12px] text-red-600">{emailFormatError}</p>}
         </div>
 
         <div>
@@ -72,11 +98,15 @@ export default function LoginPage() {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError(null);
+              setErrorField(null);
+            }}
             placeholder="••••••••"
             required
             minLength={6}
-            className={inputClass}
+            className={`${baseInputClass} ${passwordInError ? errorBorder : normalBorder}`}
           />
         </div>
 

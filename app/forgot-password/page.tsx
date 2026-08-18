@@ -4,20 +4,33 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import AuthLayout from "../componets/AuthLayout";
+import { isValidEmail } from "@/lib/authValidation";
 
-const inputClass =
-  "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
+const baseInputClass =
+  "w-full rounded-lg border bg-[#FAFAF8] px-4 py-3 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none transition-colors";
+const normalBorder = "border-[#E2E1DD] focus:border-[#141414]";
+const errorBorder = "border-red-400 focus:border-red-500";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const supabase = createClient();
 
+  const emailFormatError =
+    emailTouched && email.length > 0 && !isValidEmail(email) ? "Enter a valid email address." : null;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!isValidEmail(email)) {
+      setEmailTouched(true);
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -59,11 +72,16 @@ export default function ForgotPasswordPage() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError(null);
+            }}
+            onBlur={() => setEmailTouched(true)}
             placeholder="you@example.com"
             required
-            className={inputClass}
+            className={`${baseInputClass} ${emailFormatError ? errorBorder : normalBorder}`}
           />
+          {emailFormatError && <p className="mt-1.5 text-[12px] text-red-600">{emailFormatError}</p>}
         </div>
 
         {error && (
