@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PROTECTED_PATHS = ["/profile", "/account"];
+const AUTH_PATHS = ["/login", "/signup"];
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -29,9 +32,19 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && request.nextUrl.pathname.startsWith("/profile")) {
+  const { pathname } = request.nextUrl;
+  const isProtectedPath = PROTECTED_PATHS.some((path) => pathname.startsWith(path));
+  const isAuthPath = AUTH_PATHS.some((path) => pathname.startsWith(path));
+
+  if (!user && isProtectedPath) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/signup";
+    return NextResponse.redirect(url);
+  }
+
+  if (user && isAuthPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/profile";
     return NextResponse.redirect(url);
   }
 
