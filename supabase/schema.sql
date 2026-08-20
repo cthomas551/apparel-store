@@ -60,7 +60,26 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- =========================================================
--- 3. BACKFILL EXISTING PROFILES (safe to re-run; only fills blanks)
+-- 3a. BACKFILL MISSING PROFILE ROWS (safe to re-run)
+-- =========================================================
+-- The trigger only runs at the moment of signup. Any account created
+-- before the trigger existed (or before this whole setup was finished)
+-- has no row in profiles at all -- which makes every update from the
+-- app silently match zero rows. This creates the missing row for any
+-- such account.
+
+insert into public.profiles (id, email, full_name, avatar_url)
+select
+  u.id,
+  u.email,
+  coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'),
+  coalesce(u.raw_user_meta_data ->> 'avatar_url', u.raw_user_meta_data ->> 'picture')
+from auth.users u
+left join public.profiles p on p.id = u.id
+where p.id is null;
+
+-- =========================================================
+-- 3b. BACKFILL EXISTING PROFILES (safe to re-run; only fills blanks)
 -- =========================================================
 -- The trigger above only runs for NEW signups. This fixes accounts
 -- created before the trigger knew to check 'name' and 'picture' too.
