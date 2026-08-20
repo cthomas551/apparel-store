@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import AuthListener from "./componets/AuthListener";
 
 export const metadata: Metadata = {
   title: "Apparel Store",
@@ -29,7 +30,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-[#FAFAF8] text-[#141414] antialiased">{children}</body>
+      <body className="bg-[#FAFAF8] text-[#141414] antialiased">
+        <AuthListener />
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,19 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SignOutButton() {
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
 
   async function handleSignOut() {
     setLoading(true);
+    // Redirect happens in AuthListener, which reacts to the SIGNED_OUT event
+    // this triggers -- so it works no matter where sign-out is initiated from.
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
   }
 
   return (
