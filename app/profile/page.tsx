@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AvatarUploader from "./AvatarUploader";
 import EditableName from "./EditableName";
+import SignOutButton from "./SignOutButton";
 import AuthLayout from "../componets/AuthLayout";
 
 export default async function ProfilePage() {
@@ -63,6 +64,12 @@ export default async function ProfilePage() {
               Name
             </span>
             <EditableName userId={user.id} initialName={displayName} />
+          </div>
+        </div>
+
+        <div className="w-full pt-2 border-t border-[#E2E1DD]">
+          <div className="pt-6">
+            <SignOutButton />
           </div>
         </div>
       </div>
