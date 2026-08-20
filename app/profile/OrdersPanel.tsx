@@ -32,18 +32,19 @@ export default function OrdersPanel({ orders }: { orders: Order[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="divide-y divide-[#E2E1DD]/70 border-t border-[#E2E1DD]/70">
       {orders.map((order) => (
-        <div
-          key={order.id}
-          className="flex items-center justify-between gap-4 rounded-lg border border-[#E2E1DD] px-4 py-3"
-        >
+        <div key={order.id} className="flex items-center justify-between gap-4 py-5">
           <div>
-            <span className="block text-[13px] text-[#141414]">Order #{order.id.slice(0, 8)}</span>
-            <span className="block text-[12px] text-[#141414]/50">{formatDate(order.created_at)}</span>
+            <span className="block text-[14px] font-medium text-[#141414]">
+              Order #{order.id.slice(0, 8)}
+            </span>
+            <span className="block text-[12px] text-[#141414]/50 mt-0.5">
+              {formatDate(order.created_at)}
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-[#141414]">{formatCurrency(order.total)}</span>
+          <div className="flex items-center gap-4">
+            <span className="text-[14px] text-[#141414]">{formatCurrency(order.total)}</span>
             <span
               className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${STATUS_STYLES[order.status]}`}
             >

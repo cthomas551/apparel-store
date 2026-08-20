@@ -46,11 +46,11 @@ export default function EditableName({
   if (!editing) {
     return (
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[14px] text-[#141414]">{name}</span>
+        <span className="text-[14px] font-medium text-[#141414]">{name}</span>
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="text-[12px] text-[#141414]/55 underline underline-offset-4 shrink-0"
+          className="text-[11px] uppercase tracking-[0.14em] text-[#141414]/50 shrink-0 transition-colors duration-200 hover:text-[#141414]"
         >
           Edit
         </button>
@@ -60,20 +60,21 @@ export default function EditableName({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
+      <div className="flex items-end gap-3">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name"
-          className="flex-1 rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-3 py-2 text-[14px] text-[#141414] focus:outline-none focus:border-[#141414] transition-colors"
+          autoFocus
+          className="flex-1 border-0 border-b border-[#E2E1DD] bg-transparent px-0 py-1.5 text-[14px] text-[#141414] focus:outline-none focus:border-[#141414] transition-colors duration-200"
         />
         <button
           type="button"
           onClick={handleSave}
           disabled={saving || !name.trim()}
-          className="shrink-0 rounded-lg bg-[#141414] px-3 py-2 text-[12px] uppercase tracking-wide text-[#FAFAF8] transition-colors hover:bg-[#141414]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="shrink-0 text-[11px] uppercase tracking-[0.14em] text-[#141414]/50 pb-1.5 transition-colors duration-200 hover:text-[#141414] disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {saving ? "..." : "Save"}
+          {saving ? "Saving..." : "Save"}
         </button>
       </div>
       {error && <p className="text-[12px] text-red-600">{error}</p>}

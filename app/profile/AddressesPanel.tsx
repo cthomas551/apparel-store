@@ -7,7 +7,7 @@ import type { Database } from "@/lib/database.types";
 type Address = Database["public"]["Tables"]["addresses"]["Row"];
 
 const inputClass =
-  "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-3 py-2 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors";
+  "w-full rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-3 py-2 text-[14px] text-[#141414] placeholder:text-[#141414]/30 focus:outline-none focus:border-[#141414] transition-colors duration-200";
 
 type FormState = {
   id?: string;
@@ -129,39 +129,42 @@ export default function AddressesPanel({
         <p className="text-[14px] text-[#141414]/55">No saved addresses yet.</p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {addresses.map((address) => (
-          <div key={address.id} className="rounded-lg border border-[#E2E1DD] p-4">
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-[12px] uppercase tracking-[0.14em] text-[#141414]/50">
+          <div
+            key={address.id}
+            className="rounded-lg border border-[#E2E1DD]/80 shadow-sm p-5 transition-colors duration-200 hover:border-[#141414]/25"
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-[11px] uppercase tracking-[0.16em] text-[#141414]/45">
                 {address.label}
               </span>
               {address.is_default && (
-                <span className="rounded-full border border-[#E2E1DD] px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-[#141414]/60">
+                <span className="rounded-full border border-[#E2E1DD] px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-[#141414]/55">
                   Default
                 </span>
               )}
             </div>
-            <p className="text-[14px] text-[#141414]">{address.full_name}</p>
-            <p className="text-[13px] text-[#141414]/70">
+            <p className="text-[14px] font-medium text-[#141414]">{address.full_name}</p>
+            <p className="text-[13px] text-[#141414]/65 mt-0.5">
               {address.line1}
               {address.line2 ? `, ${address.line2}` : ""}
             </p>
-            <p className="text-[13px] text-[#141414]/70">
+            <p className="text-[13px] text-[#141414]/65">
               {address.city}, {address.state} {address.postal_code}
             </p>
-            <div className="flex gap-4 mt-3">
+            <div className="flex gap-5 mt-4">
               <button
                 type="button"
                 onClick={() => startEdit(address)}
-                className="text-[12px] text-[#141414]/60 underline underline-offset-4"
+                className="text-[11px] uppercase tracking-[0.14em] text-[#141414]/50 transition-colors duration-200 hover:text-[#141414]"
               >
                 Edit
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(address.id)}
-                className="text-[12px] text-red-600 underline underline-offset-4"
+                className="text-[11px] uppercase tracking-[0.14em] text-[#141414]/50 transition-colors duration-200 hover:text-red-600"
               >
                 Delete
               </button>
@@ -239,14 +242,14 @@ export default function AddressesPanel({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-[#141414] px-4 py-2 text-[12px] uppercase tracking-[0.14em] text-[#FAFAF8] transition-colors hover:bg-[#141414]/90 disabled:opacity-50"
+              className="rounded-lg bg-[#141414] px-4 py-2 text-[12px] uppercase tracking-[0.14em] text-[#FAFAF8] transition-colors duration-200 hover:bg-[#141414]/90 disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save address"}
             </button>
             <button
               type="button"
               onClick={() => setForm(null)}
-              className="rounded-lg border border-[#E2E1DD] px-4 py-2 text-[12px] uppercase tracking-[0.14em] text-[#141414] transition-colors hover:bg-[#F4F2ED]"
+              className="rounded-lg border border-[#E2E1DD] px-4 py-2 text-[12px] uppercase tracking-[0.14em] text-[#141414] transition-colors duration-200 hover:bg-[#F4F2ED]"
             >
               Cancel
             </button>
@@ -256,7 +259,7 @@ export default function AddressesPanel({
         <button
           type="button"
           onClick={startAdd}
-          className="self-start rounded-lg border border-[#E2E1DD] px-4 py-2 text-[12px] uppercase tracking-[0.14em] text-[#141414] transition-colors hover:bg-[#F4F2ED]"
+          className="self-start rounded-lg border border-[#E2E1DD] px-4 py-2 text-[12px] uppercase tracking-[0.14em] text-[#141414] transition-colors duration-200 hover:bg-[#F4F2ED]"
         >
           + Add new address
         </button>

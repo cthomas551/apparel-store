@@ -55,7 +55,7 @@ export default function WishlistPanel({
             if (e.target.value) handleAdd(e.target.value);
             e.target.value = "";
           }}
-          className="self-start rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-3 py-2 text-[13px] text-[#141414] focus:outline-none focus:border-[#141414]"
+          className="self-start rounded-md border border-[#E2E1DD] bg-white px-3 py-2 text-[12px] uppercase tracking-[0.1em] text-[#141414]/70 transition-colors duration-200 focus:outline-none focus:border-[#141414] hover:border-[#141414]/40"
         >
           <option value="" disabled>
             + Add a product to your wishlist
@@ -86,7 +86,7 @@ export default function WishlistPanel({
                   type="button"
                   onClick={() => handleRemove(product.id)}
                   aria-label={`Remove ${product.name} from wishlist`}
-                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-[#141414] transition-colors hover:bg-white"
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-[#141414] transition-colors duration-200 hover:bg-white"
                 >
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8}>
                     <path d="M6 6 L18 18 M18 6 L6 18" strokeLinecap="round" />
@@ -94,8 +94,8 @@ export default function WishlistPanel({
                 </button>
               </div>
               <div>
-                <p className="text-[13px] text-[#141414]">{product.name}</p>
-                <p className="text-[12px] text-[#141414]/60">{product.price}</p>
+                <p className="text-[13px] font-medium text-[#141414]">{product.name}</p>
+                <p className="text-[12px] text-[#141414]/55 mt-0.5">{product.price}</p>
               </div>
             </div>
           ))}
