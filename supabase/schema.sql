@@ -60,7 +60,7 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- =========================================================
--- 4. BACKFILL EXISTING PROFILES (safe to re-run; only fills blanks)
+-- 3. BACKFILL EXISTING PROFILES (safe to re-run; only fills blanks)
 -- =========================================================
 -- The trigger above only runs for NEW signups. This fixes accounts
 -- created before the trigger knew to check 'name' and 'picture' too.
@@ -74,7 +74,7 @@ where p.id = u.id
   and (p.full_name is null or p.avatar_url is null);
 
 -- =========================================================
--- 3. PRIVATE "avatars" STORAGE BUCKET
+-- 4. PRIVATE "avatars" STORAGE BUCKET
 -- =========================================================
 
 insert into storage.buckets (id, name, public)
@@ -122,3 +122,102 @@ create policy "Users can delete own avatar folder"
     bucket_id = 'avatars'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+create extension if not exists pgcrypto;
+
+-- =========================================================
+-- 5. ORDERS TABLE
+-- =========================================================
+-- Nothing writes to this table yet -- checkout goes straight to Stripe
+-- and doesn't record a row here. This is the schema + read policy so
+-- the Orders tab has somewhere real to read from once that's wired up
+-- (e.g. from a Stripe webhook using the service_role key).
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'shipped', 'delivered')),
+  total numeric(10, 2) not null default 0,
+  items jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.orders enable row level security;
+
+drop policy if exists "Users can view own orders" on public.orders;
+create policy "Users can view own orders"
+  on public.orders for select
+  using (auth.uid() = user_id);
+
+-- =========================================================
+-- 6. ADDRESSES TABLE
+-- =========================================================
+
+create table if not exists public.addresses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  label text not null default 'Home',
+  full_name text not null,
+  line1 text not null,
+  line2 text,
+  city text not null,
+  state text not null,
+  postal_code text not null,
+  country text not null default 'US',
+  is_default boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.addresses enable row level security;
+
+drop policy if exists "Users can view own addresses" on public.addresses;
+create policy "Users can view own addresses"
+  on public.addresses for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own addresses" on public.addresses;
+create policy "Users can insert own addresses"
+  on public.addresses for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own addresses" on public.addresses;
+create policy "Users can update own addresses"
+  on public.addresses for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own addresses" on public.addresses;
+create policy "Users can delete own addresses"
+  on public.addresses for delete
+  using (auth.uid() = user_id);
+
+-- =========================================================
+-- 7. FAVORITES / WISHLIST TABLE
+-- =========================================================
+-- product_id is a plain text id matching lib/products.ts (PRODUCTS[].id),
+-- since the product catalog isn't stored in the database.
+
+create table if not exists public.favorites (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  product_id text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, product_id)
+);
+
+alter table public.favorites enable row level security;
+
+drop policy if exists "Users can view own favorites" on public.favorites;
+create policy "Users can view own favorites"
+  on public.favorites for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own favorites" on public.favorites;
+create policy "Users can insert own favorites"
+  on public.favorites for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own favorites" on public.favorites;
+create policy "Users can delete own favorites"
+  on public.favorites for delete
+  using (auth.uid() = user_id);
