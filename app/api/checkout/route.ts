@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import type { CartItem } from "@/app/componets/CartModal";
+import { createClient } from "@/lib/supabase/server";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecretKey) {
@@ -25,6 +26,15 @@ function isValidCartItem(item: unknown): item is CartItem {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Please log in to check out.", requiresLogin: true }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -42,6 +52,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      client_reference_id: user.id,
       line_items: items.map((item) => ({
         quantity: item.quantity,
         price_data: {

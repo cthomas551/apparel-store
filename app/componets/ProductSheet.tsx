@@ -49,6 +49,23 @@ type SheetProduct = {
   details?: ProductDetail[];
 };
 
+function IconHeart({ filled, className = "h-4 w-4" }: { filled: boolean; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={1.6}
+    >
+      <path
+        d="M12 20.5 C12 20.5 3.5 15.2 3.5 9.2 C3.5 6.1 5.9 3.8 8.8 3.8 C10.4 3.8 11.5 4.6 12 5.4 C12.5 4.6 13.6 3.8 15.2 3.8 C18.1 3.8 20.5 6.1 20.5 9.2 C20.5 15.2 12 20.5 12 20.5 Z"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const SIZES: Size[] = ["S", "M", "L", "XL"];
 
 function imgSrc(img: GalleryImage): string {
@@ -60,11 +77,15 @@ export default function ProductSheet({
   isOpen,
   onClose,
   onAddToBag,
+  isFavorite,
+  onToggleFavorite,
 }: {
   product: SheetProduct;
   isOpen: boolean;
   onClose: () => void;
   onAddToBag: (size: Size) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }) {
   const [selectedSize, setSelectedSize] = useState<Size | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -137,6 +158,20 @@ export default function ProductSheet({
             <path d="M6 6 L18 18 M18 6 L6 18" strokeLinecap="round" />
           </svg>
         </button>
+
+        {/* Save to wishlist */}
+        {onToggleFavorite && (
+          <button
+            onClick={onToggleFavorite}
+            aria-label={isFavorite ? "Remove from wishlist" : "Save to wishlist"}
+            aria-pressed={isFavorite}
+            className={`absolute top-4 left-4 z-10 h-8 w-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center transition-colors ${
+              isFavorite ? "text-red-400" : "text-[#FAFAF8] hover:text-red-300"
+            }`}
+          >
+            <IconHeart filled={!!isFavorite} />
+          </button>
+        )}
 
         {/* Scrollable region: gallery + description + details + size */}
         <div className="overflow-y-auto flex-1 min-h-0">

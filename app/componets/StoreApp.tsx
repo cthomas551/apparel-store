@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import ProductSheet from "./ProductSheet";
@@ -116,7 +117,9 @@ export default function StoreApp() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const bagCount = bagItems.reduce((sum, item) => sum + item.quantity, 0);
+  const router = useRouter();
 
   const feedRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
@@ -134,6 +137,40 @@ export default function StoreApp() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("favorites")
+      .select("product_id")
+      .eq("user_id", user.id)
+      .then(({ data }) => {
+        setFavoriteIds(new Set((data ?? []).map((f) => f.product_id)));
+      });
+  }, [user]);
+
+  async function toggleFavorite(productId: string) {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const supabase = createClient();
+    const alreadyFavorited = favoriteIds.has(productId);
+
+    if (alreadyFavorited) {
+      await supabase.from("favorites").delete().eq("user_id", user.id).eq("product_id", productId);
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    } else {
+      await supabase.from("favorites").insert({ user_id: user.id, product_id: productId });
+      setFavoriteIds((prev) => new Set(prev).add(productId));
+    }
+  }
 
   useEffect(() => {
     const root = feedRef.current;
@@ -453,6 +490,8 @@ export default function StoreApp() {
           }}
           isOpen={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
+          isFavorite={!!user && favoriteIds.has(selectedProduct.id)}
+          onToggleFavorite={() => toggleFavorite(selectedProduct.id)}
           onAddToBag={(size) => {
             const product = selectedProduct;
             const key = `${product.id}-${size}`;
@@ -498,6 +537,11 @@ export default function StoreApp() {
               body: JSON.stringify({ items: bagItems }),
             });
             const data = await res.json();
+
+            if (data.requiresLogin) {
+              router.push("/login");
+              return;
+            }
 
             if (!res.ok || !data.url) {
               throw new Error(data.error ?? "Checkout failed to start.");
