@@ -35,14 +35,21 @@ create policy "Users can insert own profile"
 -- 2. AUTO-CREATE A PROFILE ROW WHEN A USER SIGNS UP
 -- =========================================================
 
+-- Google OAuth puts the display name under 'full_name' or 'name' depending
+-- on version, and the photo under 'avatar_url' or 'picture' -- check both.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, full_name)
-  values (new.id, new.email, new.raw_user_meta_data ->> 'full_name');
+  insert into public.profiles (id, email, full_name, avatar_url)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
+    coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture')
+  );
   return new;
 end;
 $$;
@@ -51,6 +58,20 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- =========================================================
+-- 4. BACKFILL EXISTING PROFILES (safe to re-run; only fills blanks)
+-- =========================================================
+-- The trigger above only runs for NEW signups. This fixes accounts
+-- created before the trigger knew to check 'name' and 'picture' too.
+
+update public.profiles p
+set
+  full_name = coalesce(p.full_name, u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'),
+  avatar_url = coalesce(p.avatar_url, u.raw_user_meta_data ->> 'avatar_url', u.raw_user_meta_data ->> 'picture')
+from auth.users u
+where p.id = u.id
+  and (p.full_name is null or p.avatar_url is null);
 
 -- =========================================================
 -- 3. PRIVATE "avatars" STORAGE BUCKET

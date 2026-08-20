@@ -58,14 +58,37 @@ export default function AvatarUploader({
   }
 
   return (
-    <div>
-      {avatarUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl} alt="Avatar" width={96} height={96} />
-      )}
-      <input type="file" accept="image/*" onChange={handleUpload} disabled={uploading} />
-      {uploading && <p>Uploading...</p>}
-      {error && <p>{error}</p>}
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-[#E2E1DD] bg-[#F4F2ED]">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+        ) : (
+          <IconUserPlaceholder />
+        )}
+      </div>
+
+      <label className="cursor-pointer rounded-lg border border-[#E2E1DD] bg-white px-4 py-2 text-[12px] font-medium text-[#141414] transition-colors hover:bg-[#F4F2ED]">
+        {uploading ? "Uploading..." : "Change photo"}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleUpload}
+          disabled={uploading}
+          className="hidden"
+        />
+      </label>
+
+      {error && <p className="text-[12px] text-red-600">{error}</p>}
     </div>
+  );
+}
+
+function IconUserPlaceholder() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-10 w-10 text-[#141414]/25" fill="none" stroke="currentColor" strokeWidth={1.4}>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 20 C5 15.5 8 13 12 13 C16 13 19 15.5 19 20" strokeLinecap="round" />
+    </svg>
   );
 }
