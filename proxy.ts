@@ -38,7 +38,7 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isProtectedPath) {
     const url = request.nextUrl.clone();
-    url.pathname = "/signup";
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
