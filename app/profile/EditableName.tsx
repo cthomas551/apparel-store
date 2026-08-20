@@ -14,19 +14,31 @@ export default function EditableName({
   const [editing, setEditing] = useState(!initialName);
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
+    setError(null);
 
-    await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .update({ full_name: name.trim(), updated_at: new Date().toISOString() })
-      .eq("id", userId);
+      .eq("id", userId)
+      .select()
+      .single();
 
     setSaving(false);
+
+    // .update() without .select() silently "succeeds" even if RLS or a
+    // missing row meant zero rows were actually changed.
+    if (error || !data) {
+      setError(error?.message ?? "Couldn't save your name -- please try again.");
+      return;
+    }
+
     setEditing(false);
     router.refresh();
   }
@@ -47,21 +59,24 @@ export default function EditableName({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Your name"
-        className="flex-1 rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-3 py-2 text-[14px] text-[#141414] focus:outline-none focus:border-[#141414] transition-colors"
-      />
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving || !name.trim()}
-        className="shrink-0 rounded-lg bg-[#141414] px-3 py-2 text-[12px] uppercase tracking-wide text-[#FAFAF8] transition-colors hover:bg-[#141414]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {saving ? "..." : "Save"}
-      </button>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your name"
+          className="flex-1 rounded-lg border border-[#E2E1DD] bg-[#FAFAF8] px-3 py-2 text-[14px] text-[#141414] focus:outline-none focus:border-[#141414] transition-colors"
+        />
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+          className="shrink-0 rounded-lg bg-[#141414] px-3 py-2 text-[12px] uppercase tracking-wide text-[#FAFAF8] transition-colors hover:bg-[#141414]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? "..." : "Save"}
+        </button>
+      </div>
+      {error && <p className="text-[12px] text-red-600">{error}</p>}
     </div>
   );
 }

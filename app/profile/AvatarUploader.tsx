@@ -60,13 +60,18 @@ export default function AvatarUploader({
       data: { publicUrl },
     } = supabase.storage.from("avatars").getPublicUrl(path);
 
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
       .from("profiles")
       .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
-      .eq("id", userId);
+      .eq("id", userId)
+      .select()
+      .single();
 
-    if (updateError) {
-      setError(updateError.message);
+    // .update() without .select() silently "succeeds" even if RLS or a
+    // missing row meant zero rows were actually changed -- .select().single()
+    // forces a real error here instead of a false positive.
+    if (updateError || !updateData) {
+      setError(updateError?.message ?? "The photo uploaded, but saving it to your profile failed.");
       setUploading(false);
       return;
     }
