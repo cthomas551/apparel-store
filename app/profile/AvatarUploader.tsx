@@ -4,6 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const BUCKET_MARKER = "/storage/v1/object/public/avatars/";
+
+function extractStoragePath(url: string): string | null {
+  const idx = url.indexOf(BUCKET_MARKER);
+  if (idx === -1) return null;
+  return url.slice(idx + BUCKET_MARKER.length);
+}
+
 export default function AvatarUploader({
   userId,
   initialAvatarUrl,
@@ -14,8 +22,16 @@ export default function AvatarUploader({
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastSeenInitial, setLastSeenInitial] = useState(initialAvatarUrl);
   const router = useRouter();
   const supabase = createClient();
+
+  // Re-sync if the server sends a fresh value on re-render (e.g. after
+  // router.refresh(), or if this component remounts from a tab switch).
+  if (initialAvatarUrl !== lastSeenInitial) {
+    setLastSeenInitial(initialAvatarUrl);
+    setAvatarUrl(initialAvatarUrl);
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -24,8 +40,11 @@ export default function AvatarUploader({
     setUploading(true);
     setError(null);
 
+    const previousUrl = avatarUrl;
     const ext = file.name.split(".").pop();
-    const path = `${userId}/avatar.${ext}`;
+    // Timestamped path so the URL changes on every upload -- a stable path
+    // would let browsers keep showing a cached copy of the old photo.
+    const path = `${userId}/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
@@ -37,9 +56,13 @@ export default function AvatarUploader({
       return;
     }
 
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(path);
+
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ avatar_url: path, updated_at: new Date().toISOString() })
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
       .eq("id", userId);
 
     if (updateError) {
@@ -48,23 +71,32 @@ export default function AvatarUploader({
       return;
     }
 
-    const { data: signed } = await supabase.storage
-      .from("avatars")
-      .createSignedUrl(path, 60 * 60);
+    // Best-effort cleanup of the previous upload so storage doesn't grow
+    // unbounded. Skips external URLs (e.g. a Google profile photo).
+    const previousPath = previousUrl ? extractStoragePath(previousUrl) : null;
+    if (previousPath) {
+      await supabase.storage.from("avatars").remove([previousPath]);
+    }
 
-    setAvatarUrl(signed?.signedUrl ?? null);
+    setAvatarUrl(publicUrl);
     setUploading(false);
     router.refresh();
   }
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-[#E2E1DD] bg-[#F4F2ED]">
+      <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-[#E2E1DD] bg-[#F4F2ED]">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
         ) : (
           <IconUserPlaceholder />
+        )}
+
+        {uploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#141414]/25 border-t-[#141414]" />
+          </div>
         )}
       </div>
 

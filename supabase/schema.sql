@@ -74,12 +74,18 @@ where p.id = u.id
   and (p.full_name is null or p.avatar_url is null);
 
 -- =========================================================
--- 4. PRIVATE "avatars" STORAGE BUCKET
+-- 4. PUBLIC "avatars" STORAGE BUCKET
 -- =========================================================
+-- Public so avatar images can be displayed with a plain public URL and
+-- never expire. Anyone with the direct link can view an avatar image --
+-- normal for profile photos, same as most apps. Uploading/replacing/
+-- deleting is still restricted to the owner via the policies below.
+-- (If this bucket was created private by an earlier version of this
+-- script, this flips it to public too.)
 
 insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', false)
-on conflict (id) do nothing;
+values ('avatars', 'avatars', true)
+on conflict (id) do update set public = true;
 
 -- Files must be stored as "{user_id}/filename.ext" for these policies to work.
 
