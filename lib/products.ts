@@ -1,4 +1,4 @@
-export type Category = "coat" | "dress" | "trouser" | "shirt" | "knit";
+export type Category = "coat" | "dress" | "trouser" | "shirt" | "knit" | "streetwear";
 
 export type GalleryImage = { src: string; fit?: "cover" | "contain" };
 
@@ -20,10 +20,10 @@ export type Product = {
 export const PRODUCTS: Product[] = [
   {
     id: "p0",
-    name: "Think About It Set",
-    category: "shirt",
+    name: "Think Graffiti Club Set",
+    category: "streetwear",
     categoryLabel: "Streetwear",
-    price: "$140",
+    price: "$175",
     tone: "#E7E4DC",
     imageUrl: "/products/think-about-it-set.png",
     imageFit: "cover",
@@ -42,12 +42,19 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "p1",
-    name: "Field Overcoat",
-    category: "coat",
-    categoryLabel: "Outerwear",
-    price: "$420",
+    name: "Think Graffiti Club Set Washed",
+    category: "streetwear",
+    categoryLabel: "Streetwear",
+    price: "$175",
     tone: "#E7E4DC",
-    imageUrl: "https://picsum.photos/seed/marrow-coat/600/1000",
+    imageUrl: "/products/gray-think.jpg",
+    imageFit: "cover",
+    monochrome: false,
+    gallery: [
+      { src: "/products/gray-think.jpg", fit: "cover" },
+      { src: "/products/Vintage-washed-tee.jpeg", fit: "contain" },
+      { src: "/products/Vintage-washed-shorts.jpg", fit: "contain" },
+    ]
   },
   {
     id: "p2",
