@@ -1,4 +1,4 @@
-export type Category = "coat" | "dress" | "trouser" | "shirt" | "knit" | "streetwear";
+export type Category = "coat" | "dress" | "trouser" | "shirt" | "knit" | "streetwear" | "short set";
 
 export type GalleryImage = { src: string; fit?: "cover" | "contain" };
 
@@ -21,8 +21,8 @@ export const PRODUCTS: Product[] = [
   {
     id: "p0",
     name: "Think Graffiti Club Set",
-    category: "streetwear",
-    categoryLabel: "Streetwear",
+    category: "short set",
+    categoryLabel: "Short Set",
     price: "$175",
     tone: "#E7E4DC",
     imageUrl: "/products/think-about-it-set.png",
@@ -43,8 +43,8 @@ export const PRODUCTS: Product[] = [
   {
     id: "p1",
     name: "Think Graffiti Club Set Washed",
-    category: "streetwear",
-    categoryLabel: "Streetwear",
+    category: "short set",
+    categoryLabel: "Short Set",
     price: "$175",
     tone: "#E7E4DC",
     imageUrl: "/products/gray-think.jpg",
@@ -58,11 +58,22 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "p2",
-    name: "Column Slip Dress",
-    category: "dress",
-    categoryLabel: "Dresses",
-    price: "$210",
+    name: "Graffiti Think Windbreaker Set",
+    category: "short set",
+    categoryLabel: "Short Set",
+    price: "$200",
     tone: "#EEEBE4",
+    imageUrl: "/products/Graffiti-Think-Windbreaker-Set.jpeg",
+imageFit: "cover",
+
+    monochrome: false,
+    gallery: [
+      { src: "/products/Graffiti-Think-Windbreaker-Set.jpeg", fit: "cover" },
+      { src: "/products/Front_Graffiti_Think_Windbreaker_Jacket.jpeg", fit: "contain" },
+      { src: "/products/Back_Graffiti_Think_Windbreaker_Jacket.jpeg", fit: "contain" },
+      { src: "/products/Front_Graffiti_Think_Windbreaker_Shorts.jpeg", fit: "contain" },
+      { src: "/products/Back_Graffiti_Think_Windbreaker_Shorts.jpeg", fit: "contain" },
+    ]
   },
   {
     id: "p3",
