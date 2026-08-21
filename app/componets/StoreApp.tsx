@@ -508,7 +508,7 @@ export default function StoreApp() {
               }
               return [
                 ...prev,
-                { key, name: product.name, size, price, imageUrl, quantity: 1 },
+                { key, productId: product.id, name: product.name, size, price, imageUrl, quantity: 1 },
               ];
             });
 
