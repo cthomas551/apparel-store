@@ -7,6 +7,14 @@ export type Database = {
           email: string | null;
           full_name: string | null;
           avatar_url: string | null;
+          title: string | null;
+          company: string | null;
+          birthday_month: number | null;
+          birthday_day: number | null;
+          gender: string | null;
+          phone: string | null;
+          mobile_phone: string | null;
+          interests: string | null;
           updated_at: string | null;
         };
         Insert: {
@@ -14,6 +22,14 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
+          title?: string | null;
+          company?: string | null;
+          birthday_month?: number | null;
+          birthday_day?: number | null;
+          gender?: string | null;
+          phone?: string | null;
+          mobile_phone?: string | null;
+          interests?: string | null;
           updated_at?: string | null;
         };
         Update: {
@@ -21,6 +37,14 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
+          title?: string | null;
+          company?: string | null;
+          birthday_month?: number | null;
+          birthday_day?: number | null;
+          gender?: string | null;
+          phone?: string | null;
+          mobile_phone?: string | null;
+          interests?: string | null;
           updated_at?: string | null;
         };
         Relationships: [];

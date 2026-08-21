@@ -9,6 +9,7 @@ import type { Database } from "@/lib/database.types";
 
 type Tab = "profile" | "orders" | "addresses" | "wishlist";
 
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type Address = Database["public"]["Tables"]["addresses"]["Row"];
 type Favorite = Database["public"]["Tables"]["favorites"]["Row"];
@@ -25,6 +26,7 @@ export default function ProfileTabs({
   email,
   displayName,
   avatarUrl,
+  profile,
   orders,
   addresses,
   favorites,
@@ -33,6 +35,7 @@ export default function ProfileTabs({
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  profile: Profile | null;
   orders: Order[];
   addresses: Address[];
   favorites: Favorite[];
@@ -77,6 +80,7 @@ export default function ProfileTabs({
               email={email}
               displayName={displayName}
               avatarUrl={avatarUrl}
+              profile={profile}
             />
           )}
           {activeTab === "orders" && <OrdersPanel orders={orders} />}

@@ -62,6 +62,7 @@ export default async function ProfilePage() {
         email={user.email ?? ""}
         displayName={displayName}
         avatarUrl={avatarUrl}
+        profile={profile ?? null}
         orders={orders ?? []}
         addresses={addresses ?? []}
         favorites={favorites ?? []}

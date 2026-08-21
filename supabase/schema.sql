@@ -246,3 +246,18 @@ drop policy if exists "Users can delete own favorites" on public.favorites;
 create policy "Users can delete own favorites"
   on public.favorites for delete
   using (auth.uid() = user_id);
+
+-- =========================================================
+-- 8. EXTENDED PROFILE FIELDS
+-- =========================================================
+-- For the "Change Name / Email" form. No new RLS needed -- the existing
+-- row-level policies on public.profiles already cover these columns too.
+
+alter table public.profiles add column if not exists title text;
+alter table public.profiles add column if not exists company text;
+alter table public.profiles add column if not exists birthday_month smallint;
+alter table public.profiles add column if not exists birthday_day smallint;
+alter table public.profiles add column if not exists gender text;
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists mobile_phone text;
+alter table public.profiles add column if not exists interests text;

@@ -2,19 +2,24 @@
 
 import Link from "next/link";
 import AvatarUploader from "./AvatarUploader";
-import EditableName from "./EditableName";
+import ProfileEditForm from "./ProfileEditForm";
 import SignOutButton from "./SignOutButton";
+import type { Database } from "@/lib/database.types";
+
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 export default function ProfileSecurityPanel({
   userId,
   email,
   displayName,
   avatarUrl,
+  profile,
 }: {
   userId: string;
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  profile: Profile | null;
 }) {
   return (
     <div>
@@ -28,31 +33,17 @@ export default function ProfileSecurityPanel({
         </div>
       </div>
 
-      <div className="divide-y divide-[#E2E1DD]/70 border-t border-[#E2E1DD]/70">
-        <div className="grid gap-1 py-5 sm:grid-cols-[160px_1fr] sm:items-center sm:gap-6">
-          <span className="text-[11px] uppercase tracking-[0.16em] text-[#141414]/45">Email</span>
-          <span className="text-[14px] font-medium text-[#141414]">{email}</span>
-        </div>
-
-        <div className="grid gap-1 py-5 sm:grid-cols-[160px_1fr] sm:items-center sm:gap-6">
-          <span className="text-[11px] uppercase tracking-[0.16em] text-[#141414]/45">Name</span>
-          <div className="max-w-sm">
-            <EditableName userId={userId} initialName={displayName} />
-          </div>
-        </div>
-
-        <div className="grid gap-1 py-5 sm:grid-cols-[160px_1fr] sm:items-center sm:gap-6">
-          <span className="text-[11px] uppercase tracking-[0.16em] text-[#141414]/45">Password</span>
-          <Link
-            href="/forgot-password"
-            className="w-fit text-[13px] text-[#141414] transition-colors duration-200 hover:text-[#141414]/60"
-          >
-            Change password
-          </Link>
-        </div>
+      <div className="border-t border-[#E2E1DD]/70 pt-8">
+        <ProfileEditForm userId={userId} email={email} displayName={displayName} profile={profile} />
       </div>
 
-      <div className="pt-8">
+      <div className="flex items-center justify-between gap-4 border-t border-[#E2E1DD]/70 mt-8 pt-6">
+        <Link
+          href="/forgot-password"
+          className="text-[13px] text-[#141414] transition-colors duration-200 hover:text-[#141414]/60"
+        >
+          Change password
+        </Link>
         <SignOutButton />
       </div>
     </div>
