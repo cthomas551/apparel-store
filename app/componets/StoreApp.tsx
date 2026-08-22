@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -126,6 +126,31 @@ export default function StoreApp({ products }: { products: Product[] }) {
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
   const cartIdRef = useRef<string | null>(null);
 
+  // Resolves (and caches) the signed-in user's cart id on demand, rather
+  // than relying on the load-cart effect having already finished its own
+  // round trip -- that effect and a fast "add to bag" click can otherwise
+  // race, silently skipping the persist below and losing the item on
+  // refresh even though it still shows in the local bag.
+  const ensureCartId = useCallback(async (): Promise<string | null> => {
+    if (cartIdRef.current) return cartIdRef.current;
+    if (!user) return null;
+
+    const supabase = createClient();
+    const { data: cart, error } = await supabase
+      .from("carts")
+      .upsert({ user_id: user.id }, { onConflict: "user_id" })
+      .select("id")
+      .single();
+
+    if (error || !cart) {
+      console.error("Failed to resolve cart:", error);
+      return null;
+    }
+
+    cartIdRef.current = cart.id;
+    return cart.id;
+  }, [user]);
+
   useEffect(() => {
     const supabase = createClient();
 
@@ -160,22 +185,22 @@ export default function StoreApp({ products }: { products: Product[] }) {
       return;
     }
 
-    const supabase = createClient();
     let cancelled = false;
 
     (async () => {
-      const { data: cart } = await supabase
-        .from("carts")
-        .upsert({ user_id: user.id }, { onConflict: "user_id" })
-        .select("id")
-        .single();
-      if (!cart || cancelled) return;
-      cartIdRef.current = cart.id;
+      const cartId = await ensureCartId();
+      if (!cartId || cancelled) return;
 
-      const { data: items } = await supabase
+      const supabase = createClient();
+      const { data: items, error } = await supabase
         .from("cart_items")
         .select("variant_id, quantity")
-        .eq("cart_id", cart.id);
+        .eq("cart_id", cartId);
+
+      if (error) {
+        console.error("Failed to load cart items:", error);
+        return;
+      }
       if (!items || cancelled) return;
 
       const persisted = items
@@ -198,7 +223,7 @@ export default function StoreApp({ products }: { products: Product[] }) {
     return () => {
       cancelled = true;
     };
-  }, [user, products]);
+  }, [user, products, ensureCartId]);
 
   async function toggleFavorite(productId: string) {
     if (!user) {
@@ -222,21 +247,30 @@ export default function StoreApp({ products }: { products: Product[] }) {
     }
   }
 
-  function persistCartItem(variantId: string, quantity: number) {
-    if (!cartIdRef.current) return;
+  async function persistCartItem(variantId: string, quantity: number) {
+    const cartId = await ensureCartId();
+    if (!cartId) return;
+
     const supabase = createClient();
-    void supabase
+    const { error } = await supabase
       .from("cart_items")
-      .upsert(
-        { cart_id: cartIdRef.current, variant_id: variantId, quantity },
-        { onConflict: "cart_id,variant_id" }
-      );
+      .upsert({ cart_id: cartId, variant_id: variantId, quantity }, { onConflict: "cart_id,variant_id" });
+
+    if (error) console.error("Failed to persist cart item:", error);
   }
 
-  function removePersistedCartItem(variantId: string) {
-    if (!cartIdRef.current) return;
+  async function removePersistedCartItem(variantId: string) {
+    const cartId = await ensureCartId();
+    if (!cartId) return;
+
     const supabase = createClient();
-    void supabase.from("cart_items").delete().eq("cart_id", cartIdRef.current).eq("variant_id", variantId);
+    const { error } = await supabase
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cartId)
+      .eq("variant_id", variantId);
+
+    if (error) console.error("Failed to remove persisted cart item:", error);
   }
 
   useEffect(() => {
