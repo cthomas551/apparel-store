@@ -1,6 +1,6 @@
 export type Category = "coat" | "dress" | "trouser" | "shirt" | "knit" | "streetwear" | "short set";
 
-export type GalleryImage = { src: string; fit?: "cover" | "contain" };
+export type GalleryImage = { src: string; fit?: "cover" | "contain"; isModelShot?: boolean };
 
 export type Product = {
   id: string;
@@ -29,7 +29,7 @@ export const PRODUCTS: Product[] = [
     imageFit: "cover",
     monochrome: false,
     gallery: [
-      { src: "/products/think-about-it-set.png", fit: "cover" },
+      { src: "/products/think-about-it-set.png", fit: "cover", isModelShot: true },
       { src: "/products/Tee.png", fit: "contain" },
       { src: "/products/Shorts.png", fit: "contain" },
     ],
@@ -51,7 +51,7 @@ export const PRODUCTS: Product[] = [
     imageFit: "cover",
     monochrome: false,
     gallery: [
-      { src: "/products/gray-think.jpg", fit: "cover" },
+      { src: "/products/gray-think.jpg", fit: "cover", isModelShot: true },
       { src: "/products/Vintage-washed-tee.jpeg", fit: "contain" },
       { src: "/products/Vintage-washed-shorts.jpg", fit: "contain" },
     ]
@@ -68,7 +68,7 @@ imageFit: "cover",
 
     monochrome: false,
     gallery: [
-      { src: "/products/Graffiti-Think-Windbreaker-Set.jpeg", fit: "cover" },
+      { src: "/products/Graffiti-Think-Windbreaker-Set.jpeg", fit: "cover", isModelShot: true },
       { src: "/products/Front_Graffiti_Think_Windbreaker_Jacket.jpeg", fit: "contain" },
       { src: "/products/Back_Graffiti_Think_Windbreaker_Jacket.jpeg", fit: "contain" },
       { src: "/products/Front_Graffiti_Think_Windbreaker_Shorts.jpeg", fit: "contain" },
@@ -86,12 +86,12 @@ imageFit: "cover",
     imageFit: "cover",
     monochrome: false,
     gallery: [
-      { src: "/products/CGTWS_Cobalt.jpg", fit: "cover" },
+      { src: "/products/CGTWS_Cobalt.jpg", fit: "cover", isModelShot: true },
       { src: "/products/Back_Graffiti_Think_WindBreaker_Jacket_Cobalt.jpg", fit: "contain" },
       { src: "/products/Front_Graffiti_Think_Windbreaker_Jacket_Cobalt.jpg", fit: "contain" },
       { src: "/products/Front_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg", fit: "contain" },
       { src: "/products/Back_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg", fit: "contain" },
-      { src: "/products/CBGTWS_Cobalt.jpg", fit: "contain" },
+      { src: "/products/CBGTWS_Cobalt.jpg", fit: "contain", isModelShot: true },
     ],
     description: "A cobalt blue and jet black colorblock windbreaker jacket and matching shorts, finished with white piping and a THINK graffiti print.",
   },

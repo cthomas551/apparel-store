@@ -34,6 +34,7 @@ type GalleryImage = {
   url?: string;
   src?: string;
   alt?: string;
+  isModelShot?: boolean;
 };
 
 type ProductDetail = {
@@ -114,7 +115,9 @@ export default function ProductSheet({
 
   if (!isOpen) return null;
 
-  const images = product.images?.length ? product.images : [];
+  // Model/lifestyle photos are excluded from the drawer -- it only shows the
+  // standalone product images (e.g. tee, shorts), never the person wearing them.
+  const images = (product.images ?? []).filter((img) => !img.isModelShot);
 
   function handleGalleryScroll() {
     const el = galleryRef.current;
