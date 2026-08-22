@@ -153,10 +153,9 @@ create extension if not exists pgcrypto;
 -- =========================================================
 -- 5. ORDERS TABLE
 -- =========================================================
--- Nothing writes to this table yet -- checkout goes straight to Stripe
--- and doesn't record a row here. This is the schema + read policy so
--- the Orders tab has somewhere real to read from once that's wired up
--- (e.g. from a Stripe webhook using the service_role key).
+-- app/api/webhooks/stripe/route.ts writes to this table using the
+-- service-role client (bypasses RLS) after a successful checkout, so
+-- there's no insert/update policy here for regular users on purpose.
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
@@ -261,3 +260,103 @@ alter table public.profiles add column if not exists gender text;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists mobile_phone text;
 alter table public.profiles add column if not exists interests text;
+
+-- =========================================================
+-- 9. RECONCILE WITH THE LIVE COMMERCE SCHEMA
+-- =========================================================
+-- Discovered 2026-08-21: a "walk me through it" session on Claude.ai
+-- had already built a full commerce schema directly on this database
+-- via the Supabase CLI (categories, products, product_variants,
+-- product_images, product_tags, product_tag_map, product_reviews,
+-- promotions, carts, cart_items, order_items), plus a checkout_cart()
+-- function that row-locks stock during checkout so two people can't
+-- both buy the last unit of something. It's solid, so this section
+-- adopts it as-is rather than recreating it, and only fixes two
+-- things: (1) admin access already uses profiles.role = 'admin' plus
+-- an is_admin() function -- not a separate boolean column, so nothing
+-- here adds one; (2) the seed data was demo/placeholder products (a
+-- slip dress, an overcoat, a wool trouser) that don't exist in the
+-- real catalog -- replaced below with the actual 7 products from
+-- lib/products.ts, filed under the categories that already exist
+-- (Streetwear, Shirting, Knitwear, Outerwear). The app still reads
+-- from lib/products.ts today; nothing here is wired up to the
+-- storefront, checkout, or the Stripe webhook yet (see project plan
+-- for phases 2+). Safe to re-run.
+-- =========================================================
+
+-- product_images predates the isModelShot concept already built into
+-- ProductSheet.tsx -- add the two columns it needs.
+alter table public.product_images add column if not exists fit text default 'contain' check (fit in ('cover', 'contain'));
+alter table public.product_images add column if not exists is_model_shot boolean not null default false;
+
+-- Wipe the demo seed data. Safe: carts, cart_items, order_items and
+-- product_reviews are still empty, so nothing real references any of
+-- this yet.
+delete from public.product_tag_map where product_id in (select id from public.products);
+delete from public.product_images where product_id in (select id from public.products);
+delete from public.product_variants where product_id in (select id from public.products);
+delete from public.product_reviews where product_id in (select id from public.products);
+delete from public.products;
+
+-- Real catalog: 7 products, matching lib/products.ts exactly, filed
+-- under the categories that already exist on this database.
+insert into public.products (slug, name, description, base_price, category_id, status) values
+  ('think-graffiti-club-set', 'Think Graffiti Club Set',
+   'An oversized graffiti-print tee and matching shorts, cut relaxed and finished with a heavyweight cotton fleece.',
+   175.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+  ('think-graffiti-club-set-washed', 'Think Graffiti Club Set Washed', null,
+   175.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+  ('graffiti-think-windbreaker-set', 'Graffiti Think Windbreaker Set', null,
+   200.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+  ('graffiti-think-windbreaker', 'Graffiti Think WindBreaker',
+   'A cobalt blue and jet black colorblock windbreaker jacket and matching shorts, finished with white piping and a THINK graffiti print.',
+   200.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+  ('oversized-poplin-shirt', 'Oversized Poplin Shirt', null,
+   140.00, (select id from public.categories where slug = 'shirting'), 'active'),
+  ('ribbed-merino-knit', 'Ribbed Merino Knit', null,
+   165.00, (select id from public.categories where slug = 'knitwear'), 'active'),
+  ('raw-selvage-coat', 'Raw Selvage Coat', null,
+   380.00, (select id from public.categories where slug = 'outerwear'), 'active');
+
+-- Product images (gallery), tagged is_model_shot to match lib/products.ts.
+insert into public.product_images (product_id, url, fit, is_model_shot, sort_order)
+select p.id, v.url, v.fit, v.is_model_shot, v.sort_order
+from public.products p
+join (values
+  ('think-graffiti-club-set', '/products/think-about-it-set.png', 'cover', true, 0),
+  ('think-graffiti-club-set', '/products/Tee.png', 'contain', false, 1),
+  ('think-graffiti-club-set', '/products/Shorts.png', 'contain', false, 2),
+  ('think-graffiti-club-set-washed', '/products/gray-think.jpg', 'cover', true, 0),
+  ('think-graffiti-club-set-washed', '/products/Vintage-washed-tee.jpeg', 'contain', false, 1),
+  ('think-graffiti-club-set-washed', '/products/Vintage-washed-shorts.jpg', 'contain', false, 2),
+  ('graffiti-think-windbreaker-set', '/products/Graffiti-Think-Windbreaker-Set.jpeg', 'cover', true, 0),
+  ('graffiti-think-windbreaker-set', '/products/Front_Graffiti_Think_Windbreaker_Jacket.jpeg', 'contain', false, 1),
+  ('graffiti-think-windbreaker-set', '/products/Back_Graffiti_Think_Windbreaker_Jacket.jpeg', 'contain', false, 2),
+  ('graffiti-think-windbreaker-set', '/products/Front_Graffiti_Think_Windbreaker_Shorts.jpeg', 'contain', false, 3),
+  ('graffiti-think-windbreaker-set', '/products/Back_Graffiti_Think_Windbreaker_Shorts.jpeg', 'contain', false, 4),
+  ('graffiti-think-windbreaker', '/products/CGTWS_Cobalt.jpg', 'cover', true, 0),
+  ('graffiti-think-windbreaker', '/products/Back_Graffiti_Think_WindBreaker_Jacket_Cobalt.jpg', 'contain', false, 1),
+  ('graffiti-think-windbreaker', '/products/Front_Graffiti_Think_Windbreaker_Jacket_Cobalt.jpg', 'contain', false, 2),
+  ('graffiti-think-windbreaker', '/products/Front_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg', 'contain', false, 3),
+  ('graffiti-think-windbreaker', '/products/Back_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg', 'contain', false, 4),
+  ('graffiti-think-windbreaker', '/products/CBGTWS_Cobalt.jpg', 'contain', true, 5)
+) as v(slug, url, fit, is_model_shot, sort_order)
+  on v.slug = p.slug;
+
+-- Variants -- one per size (S/M/L/XL) for every product, placeholder
+-- stock of 25 -- adjust to real numbers once this ships. `color` is a
+-- required field on this table; only graffiti-think-windbreaker has a
+-- named colorway today (Cobalt Blue), so everything else gets
+-- 'Standard' as an honest placeholder rather than inventing options
+-- that don't exist.
+insert into public.product_variants (product_id, size, color, sku, stock_quantity)
+select p.id, sz.size,
+  case when p.slug = 'graffiti-think-windbreaker' then 'Cobalt Blue' else 'Standard' end,
+  upper(replace(p.slug, '-', '_')) || '-' || sz.size,
+  25
+from public.products p
+cross join (values ('S'), ('M'), ('L'), ('XL')) as sz(size);
+
+-- Admin access: the role column + is_admin() function already exist.
+update public.profiles set role = 'admin' where email = 'cthomas551@gmail.com';
+

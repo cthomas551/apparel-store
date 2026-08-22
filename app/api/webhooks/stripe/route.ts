@@ -37,20 +37,14 @@ export async function POST(request: Request) {
     // Sessions created before login-required checkout have no user to
     // attribute the order to -- skip recording rather than erroring.
     if (userId) {
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
-
-      const items = lineItems.data.map((item) => ({
-        name: item.description,
-        quantity: item.quantity,
-        amount_total: item.amount_total,
-      }));
+      const total = (session.amount_total ?? 0) / 100;
 
       const admin = createAdminClient();
       const { error } = await admin.from("orders").insert({
         user_id: userId,
         status: "pending",
-        total: (session.amount_total ?? 0) / 100,
-        items,
+        subtotal: total,
+        total,
       });
 
       if (error) {
