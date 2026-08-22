@@ -50,6 +50,11 @@ type SheetProduct = {
   details?: ProductDetail[];
 };
 
+type SheetVariant = {
+  size: string;
+  stockQuantity: number;
+};
+
 function IconHeart({ filled, className = "h-4 w-4" }: { filled: boolean; className?: string }) {
   return (
     <svg
@@ -75,6 +80,7 @@ function imgSrc(img: GalleryImage): string {
 
 export default function ProductSheet({
   product,
+  variants,
   isOpen,
   onClose,
   onAddToBag,
@@ -82,6 +88,7 @@ export default function ProductSheet({
   onToggleFavorite,
 }: {
   product: SheetProduct;
+  variants?: SheetVariant[];
   isOpen: boolean;
   onClose: () => void;
   onAddToBag: (size: Size) => void;
@@ -244,15 +251,23 @@ export default function ProductSheet({
               <div className="flex gap-2.5">
                 {SIZES.map((size) => {
                   const active = selectedSize === size;
+                  // No variants prop means availability isn't known yet
+                  // (e.g. still loading) -- default to available rather
+                  // than blocking every size.
+                  const available = !variants || variants.some((v) => v.size === size && v.stockQuantity > 0);
                   return (
                     <button
                       key={size}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => available && setSelectedSize(size)}
+                      disabled={!available}
                       aria-pressed={active}
+                      aria-disabled={!available}
                       className={`h-11 flex-1 rounded-full border text-[13px] tracking-wide transition-colors ${
-                        active
-                          ? "border-[#141414] bg-[#141414] text-[#FAFAF8]"
-                          : "border-[#E2E1DD] text-[#141414]/80 hover:border-[#141414]/40"
+                        !available
+                          ? "border-[#E2E1DD] text-[#141414]/25 cursor-not-allowed line-through"
+                          : active
+                            ? "border-[#141414] bg-[#141414] text-[#FAFAF8]"
+                            : "border-[#E2E1DD] text-[#141414]/80 hover:border-[#141414]/40"
                       }`}
                     >
                       {size}

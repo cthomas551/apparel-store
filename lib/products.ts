@@ -1,6 +1,16 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
+
 export type Category = "coat" | "dress" | "trouser" | "shirt" | "knit" | "streetwear" | "short set";
 
 export type GalleryImage = { src: string; fit?: "cover" | "contain"; isModelShot?: boolean };
+
+export type ProductVariant = {
+  id: string;
+  size: string;
+  color: string;
+  stockQuantity: number;
+};
 
 export type Product = {
   id: string;
@@ -11,112 +21,74 @@ export type Product = {
   tone: string;
   imageUrl?: string;
   imageFit?: "cover" | "contain";
-  monochrome?: boolean;
   gallery?: GalleryImage[];
   description?: string;
   details?: { label: string; value: string }[];
+  variants: ProductVariant[];
 };
 
-export const PRODUCTS: Product[] = [
-  {
-    id: "p0",
-    name: "Think Graffiti Club Set",
-    category: "short set",
-    categoryLabel: "Short Set",
-    price: "$175",
-    tone: "#E7E4DC",
-    imageUrl: "/products/think-about-it-set.png",
-    imageFit: "cover",
-    monochrome: false,
-    gallery: [
-      { src: "/products/think-about-it-set.png", fit: "cover", isModelShot: true },
-      { src: "/products/Tee.png", fit: "contain" },
-      { src: "/products/Shorts.png", fit: "contain" },
-    ],
-    description: "An oversized graffiti-print tee and matching shorts, cut relaxed and finished with a heavyweight cotton fleece.",
-    details: [
-      { label: "Fabric", value: "100% cotton fleece" },
-      { label: "Fit", value: "Oversized" },
-      { label: "Care", value: "Machine wash cold" },
-    ],
-  },
-  {
-    id: "p1",
-    name: "Think Graffiti Club Set Washed",
-    category: "short set",
-    categoryLabel: "Short Set",
-    price: "$175",
-    tone: "#E7E4DC",
-    imageUrl: "/products/gray-think.jpg",
-    imageFit: "cover",
-    monochrome: false,
-    gallery: [
-      { src: "/products/gray-think.jpg", fit: "cover", isModelShot: true },
-      { src: "/products/Vintage-washed-tee.jpeg", fit: "contain" },
-      { src: "/products/Vintage-washed-shorts.jpg", fit: "contain" },
-    ]
-  },
-  {
-    id: "p2",
-    name: "Graffiti Think Windbreaker Set",
-    category: "short set",
-    categoryLabel: "Short Set",
-    price: "$200",
-    tone: "#EEEBE4",
-    imageUrl: "/products/Graffiti-Think-Windbreaker-Set.jpeg",
-imageFit: "cover",
+// Maps the database's category taxonomy (categories.slug) to the
+// short internal value the storefront uses for filter buttons and the
+// no-photo fallback icon, plus the label actually shown to shoppers.
+const CATEGORY_MAP: Record<string, { category: Category; categoryLabel: string }> = {
+  "short-set": { category: "short set", categoryLabel: "Short Set" },
+  shirting: { category: "shirt", categoryLabel: "Shirting" },
+  knitwear: { category: "knit", categoryLabel: "Knitwear" },
+  outerwear: { category: "coat", categoryLabel: "Outerwear" },
+  dresses: { category: "dress", categoryLabel: "Dresses" },
+  trousers: { category: "trouser", categoryLabel: "Trousers" },
+  menswear: { category: "shirt", categoryLabel: "Menswear" },
+};
 
-    monochrome: false,
-    gallery: [
-      { src: "/products/Graffiti-Think-Windbreaker-Set.jpeg", fit: "cover", isModelShot: true },
-      { src: "/products/Front_Graffiti_Think_Windbreaker_Jacket.jpeg", fit: "contain" },
-      { src: "/products/Back_Graffiti_Think_Windbreaker_Jacket.jpeg", fit: "contain" },
-      { src: "/products/Front_Graffiti_Think_Windbreaker_Shorts.jpeg", fit: "contain" },
-      { src: "/products/Back_Graffiti_Think_Windbreaker_Shorts.jpeg", fit: "contain" },
-    ]
-  },
-  {
-    id: "p3",
-    name: "Graffiti Think WindBreaker",
-    category: "short set",
-    categoryLabel: "Short Set",
-    price: "$200",
-    tone: "#E2DED3",
-    imageUrl: "/products/CGTWS_Cobalt.jpg",
-    imageFit: "cover",
-    monochrome: false,
-    gallery: [
-      { src: "/products/CGTWS_Cobalt.jpg", fit: "cover", isModelShot: true },
-      { src: "/products/Back_Graffiti_Think_WindBreaker_Jacket_Cobalt.jpg", fit: "contain" },
-      { src: "/products/Front_Graffiti_Think_Windbreaker_Jacket_Cobalt.jpg", fit: "contain" },
-      { src: "/products/Front_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg", fit: "contain" },
-      { src: "/products/Back_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg", fit: "contain" },
-      { src: "/products/CBGTWS_Cobalt.jpg", fit: "contain", isModelShot: true },
-    ],
-    description: "A cobalt blue and jet black colorblock windbreaker jacket and matching shorts, finished with white piping and a THINK graffiti print.",
-  },
-  {
-    id: "p4",
-    name: "Oversized Poplin Shirt",
-    category: "shirt",
-    categoryLabel: "Shirting",
-    price: "$140",
-    tone: "#EBE8E1",
-  },
-  {
-    id: "p5",
-    name: "Ribbed Merino Knit",
-    category: "knit",
-    categoryLabel: "Knitwear",
-    price: "$165",
-    tone: "#DFDBCF",
-  },
-  {
-    id: "p6",
-    name: "Raw Selvage Coat",
-    category: "coat",
-    categoryLabel: "Outerwear",
-    price: "$380",
-    tone: "#E9E6DE",
-  },
-];
+export async function getActiveProducts(supabase: SupabaseClient<Database>): Promise<Product[]> {
+  const [{ data: products }, { data: images }, { data: variants }, { data: categories }] =
+    await Promise.all([
+      supabase.from("products").select("*").eq("status", "active").order("name"),
+      supabase.from("product_images").select("*").order("sort_order"),
+      supabase.from("product_variants").select("*"),
+      supabase.from("categories").select("*"),
+    ]);
+
+  if (!products) return [];
+
+  const categoryById = new Map((categories ?? []).map((c) => [c.id, c]));
+
+  return products.map((p): Product => {
+    const category = p.category_id ? categoryById.get(p.category_id) : undefined;
+    const mapped = category ? CATEGORY_MAP[category.slug] : undefined;
+
+    const gallery: GalleryImage[] = (images ?? [])
+      .filter((img) => img.product_id === p.id)
+      .map((img) => ({
+        src: img.url,
+        fit: img.fit ?? undefined,
+        isModelShot: img.is_model_shot,
+      }));
+
+    const cover = gallery[0];
+
+    const productVariants: ProductVariant[] = (variants ?? [])
+      .filter((v) => v.product_id === p.id)
+      .map((v) => ({
+        id: v.id,
+        size: v.size,
+        color: v.color,
+        stockQuantity: v.stock_quantity,
+      }));
+
+    return {
+      id: p.id,
+      name: p.name,
+      category: mapped?.category ?? "shirt",
+      categoryLabel: mapped?.categoryLabel ?? category?.name ?? "Other",
+      price: `$${Math.round(Number(p.base_price))}`,
+      tone: p.tone ?? "#EDEBE5",
+      imageUrl: cover?.src,
+      imageFit: cover?.fit,
+      gallery: gallery.length > 0 ? gallery : undefined,
+      description: p.description ?? undefined,
+      details: (p.details as { label: string; value: string }[] | null) ?? undefined,
+      variants: productVariants,
+    };
+  });
+}

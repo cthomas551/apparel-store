@@ -194,6 +194,8 @@ export type Database = {
           brand: string | null;
           category_id: string | null;
           status: "draft" | "active" | "archived";
+          tone: string | null;
+          details: unknown | null;
           created_at: string;
           updated_at: string;
         };
@@ -206,6 +208,8 @@ export type Database = {
           brand?: string | null;
           category_id?: string | null;
           status?: "draft" | "active" | "archived";
+          tone?: string | null;
+          details?: unknown | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -218,6 +222,8 @@ export type Database = {
           brand?: string | null;
           category_id?: string | null;
           status?: "draft" | "active" | "archived";
+          tone?: string | null;
+          details?: unknown | null;
           created_at?: string;
           updated_at?: string;
         };

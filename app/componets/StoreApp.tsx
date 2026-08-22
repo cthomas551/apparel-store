@@ -7,7 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import ProductSheet from "./ProductSheet";
 import CartModal, { type CartItem } from "./CartModal";
-import { PRODUCTS, type Category, type Product } from "@/lib/products";
+import type { Category, Product } from "@/lib/products";
 
 function GarmentArt({ category }: { category: Category }) {
   const common = {
@@ -109,7 +109,7 @@ function IconUser({ className = "h-5 w-5" }: { className?: string }) {
 
 type Tab = "home" | "collection" | "bag";
 
-export default function StoreApp() {
+export default function StoreApp({ products }: { products: Product[] }) {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [activeIndex, setActiveIndex] = useState(0);
   const [bagItems, setBagItems] = useState<CartItem[]>([]);
@@ -198,7 +198,7 @@ export default function StoreApp() {
         <div className="relative w-full max-w-md h-dvh bg-[#FAFAF8] text-[#141414] overflow-hidden">
           <header
             className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 pt-6 pb-4 transition-colors ${
-              PRODUCTS[activeIndex]?.imageUrl && PRODUCTS[activeIndex]?.imageFit !== "contain"
+              products[activeIndex]?.imageUrl && products[activeIndex]?.imageFit !== "contain"
                 ? "bg-transparent text-[#FAFAF8]"
                 : "bg-[#FAFAF8]/90 backdrop-blur-sm text-[#141414]"
             }`}
@@ -215,7 +215,7 @@ export default function StoreApp() {
             ref={feedRef}
             className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
-            {PRODUCTS.map((product, i) => {
+            {products.map((product, i) => {
               const hasPhoto = !!product.imageUrl;
               const isContain = product.imageFit === "contain";
               const darkHero = hasPhoto && !isContain;
@@ -236,11 +236,7 @@ export default function StoreApp() {
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className={`absolute inset-0 h-full w-full ${isContain ? "object-contain" : "object-cover"} ${
-                        product.monochrome === false
-                          ? ""
-                          : "grayscale contrast-[1.08] brightness-[0.92]"
-                      }`}
+                      className={`absolute inset-0 h-full w-full ${isContain ? "object-contain" : "object-cover"}`}
                     />
                     {darkHero && (
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 via-30% to-transparent to-60%" />
@@ -293,9 +289,9 @@ export default function StoreApp() {
           </main>
 
           <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2">
-            {PRODUCTS.map((_, i) => {
+            {products.map((_, i) => {
               const activeDark =
-                !!PRODUCTS[activeIndex]?.imageUrl && PRODUCTS[activeIndex]?.imageFit !== "contain";
+                !!products[activeIndex]?.imageUrl && products[activeIndex]?.imageFit !== "contain";
               return (
                 <span
                   key={i}
@@ -315,12 +311,12 @@ export default function StoreApp() {
 
           <div
             className={`absolute left-6 bottom-24 z-20 text-[11px] tracking-[0.2em] transition-colors ${
-              PRODUCTS[activeIndex]?.imageUrl && PRODUCTS[activeIndex]?.imageFit !== "contain"
+              products[activeIndex]?.imageUrl && products[activeIndex]?.imageFit !== "contain"
                 ? "text-[#FAFAF8]/70"
                 : "text-[#141414]/50"
             }`}
           >
-            {String(activeIndex + 1).padStart(2, "0")} / {String(PRODUCTS.length).padStart(2, "0")}
+            {String(activeIndex + 1).padStart(2, "0")} / {String(products.length).padStart(2, "0")}
           </div>
 
           <nav className="absolute bottom-0 left-0 right-0 z-20 bg-[#FAFAF8]/95 backdrop-blur-sm border-t border-[#E2E1DD]">
@@ -421,7 +417,7 @@ export default function StoreApp() {
           </h1>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
-            {PRODUCTS.map((product) => {
+            {products.map((product) => {
               const isContain = product.imageFit === "contain";
               return (
               <button
@@ -443,11 +439,7 @@ export default function StoreApp() {
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className={`h-full w-full ${isContain ? "object-contain" : "object-cover"} transition-transform duration-500 group-hover:scale-105 ${
-                        product.monochrome === false
-                          ? ""
-                          : "grayscale contrast-[1.08] brightness-[0.92]"
-                      }`}
+                      className={`h-full w-full ${isContain ? "object-contain" : "object-cover"} transition-transform duration-500 group-hover:scale-105`}
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center">
@@ -476,7 +468,7 @@ export default function StoreApp() {
             name: selectedProduct.name,
             price: selectedProduct.price,
             description: selectedProduct.description,
-            details: selectedProduct. details,
+            details: selectedProduct.details,
             images:
               selectedProduct.gallery ??
               [
@@ -488,12 +480,16 @@ export default function StoreApp() {
                 },
               ],
           }}
+          variants={selectedProduct.variants}
           isOpen={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
           isFavorite={!!user && favoriteIds.has(selectedProduct.id)}
           onToggleFavorite={() => toggleFavorite(selectedProduct.id)}
           onAddToBag={(size) => {
             const product = selectedProduct;
+            const variant = product.variants.find((v) => v.size === size);
+            if (!variant) return;
+
             const key = `${product.id}-${size}`;
             const imageUrl =
               product.imageUrl ?? `https://picsum.photos/seed/marrow-${product.id}/900/1125`;
@@ -508,7 +504,16 @@ export default function StoreApp() {
               }
               return [
                 ...prev,
-                { key, productId: product.id, name: product.name, size, price, imageUrl, quantity: 1 },
+                {
+                  key,
+                  productId: product.id,
+                  variantId: variant.id,
+                  name: product.name,
+                  size,
+                  price,
+                  imageUrl,
+                  quantity: 1,
+                },
               ];
             });
 

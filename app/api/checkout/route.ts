@@ -1,7 +1,6 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { PRODUCTS } from "@/lib/products";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecretKey) {
@@ -9,17 +8,14 @@ if (!stripeSecretKey) {
 }
 const stripe = new Stripe(stripeSecretKey);
 
-type CartItemRequest = { productId: string; size: string; quantity: number };
+type CartItemRequest = { variantId: string; quantity: number };
 
 function isValidCartItemRequest(item: unknown): item is CartItemRequest {
   if (typeof item !== "object" || item === null) return false;
-  const { productId, size, quantity } = item as Record<string, unknown>;
+  const { variantId, quantity } = item as Record<string, unknown>;
   return (
-    typeof productId === "string" &&
-    productId.length > 0 &&
-    typeof size === "string" &&
-    size.length > 0 &&
-    size.length <= 10 &&
+    typeof variantId === "string" &&
+    variantId.length > 0 &&
     typeof quantity === "number" &&
     Number.isInteger(quantity) &&
     quantity > 0 &&
@@ -53,18 +49,51 @@ export async function POST(request: NextRequest) {
 
   // Price, name, and image always come from our own catalog, never from the
   // client -- otherwise a tampered request could check out any item at any
-  // price it wants.
+  // price it wants. Everything below is looked up server-side from just the
+  // variant id the client sent.
+  const variantIds = [...new Set(items.map((item) => item.variantId))];
+
+  const { data: variants } = await supabase.from("product_variants").select("*").in("id", variantIds);
+  if (!variants || variants.length !== variantIds.length) {
+    return NextResponse.json(
+      { error: "One of the items in your bag is no longer available." },
+      { status: 400 }
+    );
+  }
+
+  const productIds = [...new Set(variants.map((v) => v.product_id))];
+  const [{ data: products }, { data: images }] = await Promise.all([
+    supabase.from("products").select("*").in("id", productIds).eq("status", "active"),
+    supabase.from("product_images").select("*").in("product_id", productIds).order("sort_order"),
+  ]);
+
+  const productById = new Map((products ?? []).map((p) => [p.id, p]));
+  const variantById = new Map(variants.map((v) => [v.id, v]));
+  const coverImageByProductId = new Map<string, string>();
+  for (const img of images ?? []) {
+    if (!coverImageByProductId.has(img.product_id)) coverImageByProductId.set(img.product_id, img.url);
+  }
+
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   for (const item of items) {
-    const product = PRODUCTS.find((p) => p.id === item.productId);
-    if (!product) {
+    const variant = variantById.get(item.variantId);
+    const product = variant ? productById.get(variant.product_id) : undefined;
+
+    if (!variant || !product) {
       return NextResponse.json(
         { error: "One of the items in your bag is no longer available." },
         { status: 400 }
       );
     }
 
-    const unitAmount = Math.round(Number(product.price.replace(/[^0-9.]/g, "")) * 100);
+    if (item.quantity > variant.stock_quantity) {
+      return NextResponse.json(
+        { error: `Only ${variant.stock_quantity} left of ${product.name} (${variant.size}).` },
+        { status: 400 }
+      );
+    }
+
+    const unitAmount = Math.round(Number(variant.price_override ?? product.base_price) * 100);
     if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
       return NextResponse.json(
         { error: "Unable to price one of the items in your bag." },
@@ -72,7 +101,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const imageUrl = product.imageUrl ?? `https://picsum.photos/seed/marrow-${product.id}/900/1125`;
+    const imageUrl =
+      coverImageByProductId.get(product.id) ?? `https://picsum.photos/seed/marrow-${product.id}/900/1125`;
 
     lineItems.push({
       quantity: item.quantity,
@@ -80,7 +110,7 @@ export async function POST(request: NextRequest) {
         currency: "usd",
         unit_amount: unitAmount,
         product_data: {
-          name: `${product.name} (${item.size})`,
+          name: `${product.name} (${variant.size})`,
           images: [imageUrl.startsWith("http") ? imageUrl : `${origin}${imageUrl}`],
         },
       },

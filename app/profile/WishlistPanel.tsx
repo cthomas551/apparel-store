@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { PRODUCTS, type Product } from "@/lib/products";
+import type { Product } from "@/lib/products";
 import type { Database } from "@/lib/database.types";
 
 type Favorite = Database["public"]["Tables"]["favorites"]["Row"];
@@ -10,9 +10,11 @@ type Favorite = Database["public"]["Tables"]["favorites"]["Row"];
 export default function WishlistPanel({
   userId,
   initialFavorites,
+  products,
 }: {
   userId: string;
   initialFavorites: Favorite[];
+  products: Product[];
 }) {
   const [favorites, setFavorites] = useState(initialFavorites);
   const [adding, setAdding] = useState(false);
@@ -20,9 +22,9 @@ export default function WishlistPanel({
 
   const favoritedIds = new Set(favorites.map((f) => f.product_id));
   const savedProducts = favorites
-    .map((f) => PRODUCTS.find((p) => p.id === f.product_id))
+    .map((f) => products.find((p) => p.id === f.product_id))
     .filter((p): p is Product => Boolean(p));
-  const availableToAdd = PRODUCTS.filter((p) => !favoritedIds.has(p.id));
+  const availableToAdd = products.filter((p) => !favoritedIds.has(p.id));
 
   async function handleAdd(productId: string) {
     if (!productId) return;

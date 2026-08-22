@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveProducts } from "@/lib/products";
 import ProfileTabs from "./ProfileTabs";
 import DashboardLayout from "../componets/DashboardLayout";
 
@@ -14,7 +15,7 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
-  const [{ data: profile }, { data: orders }, { data: addresses }, { data: favorites }] =
+  const [{ data: profile }, { data: orders }, { data: addresses }, { data: favorites }, products] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase
@@ -29,6 +30,7 @@ export default async function ProfilePage() {
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false }),
       supabase.from("favorites").select("*").eq("user_id", user.id),
+      getActiveProducts(supabase),
     ]);
 
   const metadataName =
@@ -66,6 +68,7 @@ export default async function ProfilePage() {
         orders={orders ?? []}
         addresses={addresses ?? []}
         favorites={favorites ?? []}
+        products={products}
       />
     </DashboardLayout>
   );

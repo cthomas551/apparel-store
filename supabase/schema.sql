@@ -289,36 +289,40 @@ alter table public.profiles add column if not exists interests text;
 alter table public.product_images add column if not exists fit text default 'contain' check (fit in ('cover', 'contain'));
 alter table public.product_images add column if not exists is_model_shot boolean not null default false;
 
--- Wipe the demo seed data. Safe: carts, cart_items, order_items and
--- product_reviews are still empty, so nothing real references any of
--- this yet.
-delete from public.product_tag_map where product_id in (select id from public.products);
-delete from public.product_images where product_id in (select id from public.products);
-delete from public.product_variants where product_id in (select id from public.products);
-delete from public.product_reviews where product_id in (select id from public.products);
-delete from public.products;
+-- The storefront's existing filter/label copy says "Short Set," not
+-- "Streetwear" -- rename rather than change user-facing copy to match
+-- the taxonomy.
+update public.categories set name = 'Short Set', slug = 'short-set' where slug = 'streetwear';
 
 -- Real catalog: 7 products, matching lib/products.ts exactly, filed
--- under the categories that already exist on this database.
+-- under the categories that already exist on this database. Uses
+-- on conflict do nothing (not delete-and-reinsert) so ids stay stable
+-- once created -- phase 2 makes favorites.product_id a real foreign
+-- key into this table, so re-running this file must never orphan a
+-- real user's saved items or reset stock an admin has since adjusted.
 insert into public.products (slug, name, description, base_price, category_id, status) values
   ('think-graffiti-club-set', 'Think Graffiti Club Set',
    'An oversized graffiti-print tee and matching shorts, cut relaxed and finished with a heavyweight cotton fleece.',
-   175.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+   175.00, (select id from public.categories where slug = 'short-set'), 'active'),
   ('think-graffiti-club-set-washed', 'Think Graffiti Club Set Washed', null,
-   175.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+   175.00, (select id from public.categories where slug = 'short-set'), 'active'),
   ('graffiti-think-windbreaker-set', 'Graffiti Think Windbreaker Set', null,
-   200.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+   200.00, (select id from public.categories where slug = 'short-set'), 'active'),
   ('graffiti-think-windbreaker', 'Graffiti Think WindBreaker',
    'A cobalt blue and jet black colorblock windbreaker jacket and matching shorts, finished with white piping and a THINK graffiti print.',
-   200.00, (select id from public.categories where slug = 'streetwear'), 'active'),
+   200.00, (select id from public.categories where slug = 'short-set'), 'active'),
   ('oversized-poplin-shirt', 'Oversized Poplin Shirt', null,
    140.00, (select id from public.categories where slug = 'shirting'), 'active'),
   ('ribbed-merino-knit', 'Ribbed Merino Knit', null,
    165.00, (select id from public.categories where slug = 'knitwear'), 'active'),
   ('raw-selvage-coat', 'Raw Selvage Coat', null,
-   380.00, (select id from public.categories where slug = 'outerwear'), 'active');
+   380.00, (select id from public.categories where slug = 'outerwear'), 'active')
+on conflict (slug) do nothing;
 
 -- Product images (gallery), tagged is_model_shot to match lib/products.ts.
+-- Guarded by "no images yet" rather than a unique constraint, since
+-- nothing downstream references product_images.id -- safe to just skip
+-- a product that's already been seeded.
 insert into public.product_images (product_id, url, fit, is_model_shot, sort_order)
 select p.id, v.url, v.fit, v.is_model_shot, v.sort_order
 from public.products p
@@ -341,22 +345,92 @@ join (values
   ('graffiti-think-windbreaker', '/products/Back_Graffiti_Think_Windbreaker_Shorts_Cobalt.jpg', 'contain', false, 4),
   ('graffiti-think-windbreaker', '/products/CBGTWS_Cobalt.jpg', 'contain', true, 5)
 ) as v(slug, url, fit, is_model_shot, sort_order)
-  on v.slug = p.slug;
+  on v.slug = p.slug
+where not exists (select 1 from public.product_images pi where pi.product_id = p.id);
 
 -- Variants -- one per size (S/M/L/XL) for every product, placeholder
 -- stock of 25 -- adjust to real numbers once this ships. `color` is a
 -- required field on this table; only graffiti-think-windbreaker has a
 -- named colorway today (Cobalt Blue), so everything else gets
 -- 'Standard' as an honest placeholder rather than inventing options
--- that don't exist.
+-- that don't exist. on conflict do nothing for the same id-stability
+-- reason as products above.
 insert into public.product_variants (product_id, size, color, sku, stock_quantity)
 select p.id, sz.size,
   case when p.slug = 'graffiti-think-windbreaker' then 'Cobalt Blue' else 'Standard' end,
   upper(replace(p.slug, '-', '_')) || '-' || sz.size,
   25
 from public.products p
-cross join (values ('S'), ('M'), ('L'), ('XL')) as sz(size);
+cross join (values ('S'), ('M'), ('L'), ('XL')) as sz(size)
+on conflict (sku) do nothing;
 
 -- Admin access: the role column + is_admin() function already exist.
 update public.profiles set role = 'admin' where email = 'cthomas551@gmail.com';
+
+-- =========================================================
+-- 10. WIRE THE STOREFRONT TO THE DATABASE (phase 2 prep)
+-- =========================================================
+-- Two display fields the storefront needs have no home in the schema
+-- yet -- `tone` (a hex fallback color shown behind products with no
+-- photo) and `details` (the Fabric/Fit/Care list) -- add them and
+-- backfill from lib/products.ts so nothing regresses once the app
+-- reads from here instead of that file. Also migrates
+-- favorites.product_id from the old lib/products.ts string ids
+-- ("p0".."p6") to a real uuid foreign key into products, now that the
+-- app is about to start relying on it. Safe to re-run.
+-- =========================================================
+
+alter table public.products add column if not exists tone text;
+alter table public.products add column if not exists details jsonb;
+
+update public.products set tone = '#E7E4DC' where slug = 'think-graffiti-club-set';
+update public.products set tone = '#E7E4DC' where slug = 'think-graffiti-club-set-washed';
+update public.products set tone = '#EEEBE4' where slug = 'graffiti-think-windbreaker-set';
+update public.products set tone = '#E2DED3' where slug = 'graffiti-think-windbreaker';
+update public.products set tone = '#EBE8E1' where slug = 'oversized-poplin-shirt';
+update public.products set tone = '#DFDBCF' where slug = 'ribbed-merino-knit';
+update public.products set tone = '#E9E6DE' where slug = 'raw-selvage-coat';
+
+update public.products
+set details = '[
+  {"label": "Fabric", "value": "100% cotton fleece"},
+  {"label": "Fit", "value": "Oversized"},
+  {"label": "Care", "value": "Machine wash cold"}
+]'::jsonb
+where slug = 'think-graffiti-club-set';
+
+-- favorites.product_id: migrate from the old lib/products.ts string
+-- ids to the real product uuids, then lock the column down to a
+-- proper foreign key. Guarded so this only ever runs once -- once the
+-- column is uuid, re-running this file is a no-op here.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'favorites'
+      and column_name = 'product_id' and data_type = 'text'
+  ) then
+    update public.favorites f set product_id = p.id::text
+    from public.products p
+    where (f.product_id, p.slug) in (
+      ('p0', 'think-graffiti-club-set'),
+      ('p1', 'think-graffiti-club-set-washed'),
+      ('p2', 'graffiti-think-windbreaker-set'),
+      ('p3', 'graffiti-think-windbreaker'),
+      ('p4', 'oversized-poplin-shirt'),
+      ('p5', 'ribbed-merino-knit'),
+      ('p6', 'raw-selvage-coat')
+    );
+
+    -- Anything left that isn't a mappable old id or an already-valid
+    -- uuid can't survive the type change below -- remove it rather
+    -- than fail the whole migration. Should be a no-op in practice.
+    delete from public.favorites
+    where product_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+    alter table public.favorites alter column product_id type uuid using product_id::uuid;
+    alter table public.favorites add constraint favorites_product_id_fkey
+      foreign key (product_id) references public.products (id) on delete cascade;
+  end if;
+end $$;
 

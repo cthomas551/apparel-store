@@ -6,6 +6,7 @@ import OrdersPanel from "./OrdersPanel";
 import AddressesPanel from "./AddressesPanel";
 import WishlistPanel from "./WishlistPanel";
 import type { Database } from "@/lib/database.types";
+import type { Product } from "@/lib/products";
 
 type Tab = "profile" | "orders" | "addresses" | "wishlist";
 
@@ -30,6 +31,7 @@ export default function ProfileTabs({
   orders,
   addresses,
   favorites,
+  products,
 }: {
   userId: string;
   email: string;
@@ -39,6 +41,7 @@ export default function ProfileTabs({
   orders: Order[];
   addresses: Address[];
   favorites: Favorite[];
+  products: Product[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
@@ -88,7 +91,7 @@ export default function ProfileTabs({
             <AddressesPanel userId={userId} initialAddresses={addresses} />
           )}
           {activeTab === "wishlist" && (
-            <WishlistPanel userId={userId} initialFavorites={favorites} />
+            <WishlistPanel userId={userId} initialFavorites={favorites} products={products} />
           )}
         </div>
       </div>

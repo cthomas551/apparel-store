@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export type CartItem = {
   key: string;
   productId: string;
+  variantId: string;
   name: string;
   size: string;
   price: number;
