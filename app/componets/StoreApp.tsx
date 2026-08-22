@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import ProductSheet from "./ProductSheet";
 import CartModal, { type CartItem } from "./CartModal";
 import type { Category, Product } from "@/lib/products";
+import { resolveCartItem } from "@/lib/cart";
 
 function GarmentArt({ category }: { category: Category }) {
   const common = {
@@ -123,6 +124,7 @@ export default function StoreApp({ products }: { products: Product[] }) {
 
   const feedRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
+  const cartIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -150,6 +152,54 @@ export default function StoreApp({ products }: { products: Product[] }) {
       });
   }, [user]);
 
+  // Load the signed-in user's persisted bag. carts.user_id is unique, so
+  // this upsert always resolves to exactly one cart row.
+  useEffect(() => {
+    if (!user) {
+      cartIdRef.current = null;
+      return;
+    }
+
+    const supabase = createClient();
+    let cancelled = false;
+
+    (async () => {
+      const { data: cart } = await supabase
+        .from("carts")
+        .upsert({ user_id: user.id }, { onConflict: "user_id" })
+        .select("id")
+        .single();
+      if (!cart || cancelled) return;
+      cartIdRef.current = cart.id;
+
+      const { data: items } = await supabase
+        .from("cart_items")
+        .select("variant_id, quantity")
+        .eq("cart_id", cart.id);
+      if (!items || cancelled) return;
+
+      const persisted = items
+        .map((ci) => resolveCartItem(products, ci.variant_id, ci.quantity))
+        .filter((item): item is CartItem => item !== null);
+
+      setBagItems((prevGuestItems) => {
+        const merged = new Map(persisted.map((item) => [item.variantId, item]));
+        for (const guestItem of prevGuestItems) {
+          const existing = merged.get(guestItem.variantId);
+          merged.set(
+            guestItem.variantId,
+            existing ? { ...existing, quantity: existing.quantity + guestItem.quantity } : guestItem
+          );
+        }
+        return [...merged.values()];
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, products]);
+
   async function toggleFavorite(productId: string) {
     if (!user) {
       router.push("/login");
@@ -170,6 +220,23 @@ export default function StoreApp({ products }: { products: Product[] }) {
       await supabase.from("favorites").insert({ user_id: user.id, product_id: productId });
       setFavoriteIds((prev) => new Set(prev).add(productId));
     }
+  }
+
+  function persistCartItem(variantId: string, quantity: number) {
+    if (!cartIdRef.current) return;
+    const supabase = createClient();
+    void supabase
+      .from("cart_items")
+      .upsert(
+        { cart_id: cartIdRef.current, variant_id: variantId, quantity },
+        { onConflict: "cart_id,variant_id" }
+      );
+  }
+
+  function removePersistedCartItem(variantId: string) {
+    if (!cartIdRef.current) return;
+    const supabase = createClient();
+    void supabase.from("cart_items").delete().eq("cart_id", cartIdRef.current).eq("variant_id", variantId);
   }
 
   useEffect(() => {
@@ -490,33 +557,20 @@ export default function StoreApp({ products }: { products: Product[] }) {
             const variant = product.variants.find((v) => v.size === size);
             if (!variant) return;
 
-            const key = `${product.id}-${size}`;
-            const imageUrl =
-              product.imageUrl ?? `https://picsum.photos/seed/marrow-${product.id}/900/1125`;
-            const price = Number(product.price.replace(/[^0-9.]/g, "")) || 0;
+            const existing = bagItems.find((item) => item.variantId === variant.id);
+            const newQuantity = (existing?.quantity ?? 0) + 1;
 
             setBagItems((prev) => {
-              const existing = prev.find((item) => item.key === key);
               if (existing) {
                 return prev.map((item) =>
-                  item.key === key ? { ...item, quantity: item.quantity + 1 } : item
+                  item.variantId === variant.id ? { ...item, quantity: newQuantity } : item
                 );
               }
-              return [
-                ...prev,
-                {
-                  key,
-                  productId: product.id,
-                  variantId: variant.id,
-                  name: product.name,
-                  size,
-                  price,
-                  imageUrl,
-                  quantity: 1,
-                },
-              ];
+              const newItem = resolveCartItem(products, variant.id, 1);
+              return newItem ? [...prev, newItem] : prev;
             });
 
+            persistCartItem(variant.id, newQuantity);
             setSelectedProduct(null);
           }}
         />
@@ -526,12 +580,16 @@ export default function StoreApp({ products }: { products: Product[] }) {
         items={bagItems}
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
-        onUpdateQuantity={(key, quantity) =>
-          setBagItems((prev) =>
-            prev.map((item) => (item.key === key ? { ...item, quantity } : item))
-          )
-        }
-        onRemove={(key) => setBagItems((prev) => prev.filter((item) => item.key !== key))}
+        onUpdateQuantity={(key, quantity) => {
+          const item = bagItems.find((i) => i.key === key);
+          setBagItems((prev) => prev.map((i) => (i.key === key ? { ...i, quantity } : i)));
+          if (item) persistCartItem(item.variantId, quantity);
+        }}
+        onRemove={(key) => {
+          const item = bagItems.find((i) => i.key === key);
+          setBagItems((prev) => prev.filter((i) => i.key !== key));
+          if (item) removePersistedCartItem(item.variantId);
+        }}
         isCheckingOut={checkingOut}
         onCheckout={async () => {
           setCheckingOut(true);

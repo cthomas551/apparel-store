@@ -495,3 +495,64 @@ begin
 end;
 $$;
 
+-- =========================================================
+-- 12. CLEAR THE PERSISTED BAG ON PURCHASE (phase 4)
+-- =========================================================
+-- Phase 4 persists the shopping bag to carts/cart_items for logged-in
+-- users. Once record_paid_order() confirms a purchase, the items that
+-- were just bought shouldn't still be sitting in the user's saved bag
+-- next time they visit -- clear it here, server-side, so it's correct
+-- no matter which device/tab completed checkout. Redeclares the whole
+-- function (CREATE OR REPLACE can't patch just one line) -- identical
+-- to section 11's version except for the delete at the end.
+-- =========================================================
+
+create or replace function public.record_paid_order(
+  p_user_id uuid,
+  p_stripe_session_id text,
+  p_items jsonb -- [{variant_id uuid, quantity int, unit_price numeric}, ...]
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_order_id uuid;
+  v_subtotal numeric(10, 2) := 0;
+  v_item record;
+begin
+  select id into v_order_id from public.orders where stripe_session_id = p_stripe_session_id;
+  if v_order_id is not null then
+    return v_order_id;
+  end if;
+
+  select coalesce(sum(x.unit_price * x.quantity), 0) into v_subtotal
+  from jsonb_to_recordset(p_items) as x(variant_id uuid, quantity int, unit_price numeric);
+
+  insert into public.orders (user_id, status, subtotal, total, stripe_session_id)
+  values (p_user_id, 'pending', v_subtotal, v_subtotal, p_stripe_session_id)
+  returning id into v_order_id;
+
+  for v_item in
+    select x.variant_id, x.quantity, x.unit_price, p.name as product_name, pv.size, pv.color
+    from jsonb_to_recordset(p_items) as x(variant_id uuid, quantity int, unit_price numeric)
+    join public.product_variants pv on pv.id = x.variant_id
+    join public.products p on p.id = pv.product_id
+  loop
+    insert into public.order_items (order_id, variant_id, quantity, unit_price, product_name, variant_label)
+    values (v_order_id, v_item.variant_id, v_item.quantity, v_item.unit_price, v_item.product_name,
+            v_item.size || ' / ' || v_item.color);
+
+    update public.product_variants
+    set stock_quantity = greatest(stock_quantity - v_item.quantity, 0)
+    where id = v_item.variant_id;
+  end loop;
+
+  delete from public.cart_items
+  where cart_id = (select id from public.carts where user_id = p_user_id);
+
+  return v_order_id;
+end;
+$$;
+
