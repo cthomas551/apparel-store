@@ -434,3 +434,64 @@ begin
   end if;
 end $$;
 
+-- =========================================================
+-- 11. RECORD ORDER LINE ITEMS AND DECREMENT STOCK (phase 3)
+-- =========================================================
+-- The Stripe webhook only wrote a bare orders summary row -- it never
+-- recorded order_items or touched product_variants.stock_quantity, so
+-- stock never actually moved when something sold. record_paid_order()
+-- does both atomically, keyed off the Stripe session id so a webhook
+-- retry (Stripe delivers at-least-once) can't double-record an order
+-- or double-decrement stock. Safe to re-run.
+-- =========================================================
+
+alter table public.orders add column if not exists stripe_session_id text unique;
+
+create or replace function public.record_paid_order(
+  p_user_id uuid,
+  p_stripe_session_id text,
+  p_items jsonb -- [{variant_id uuid, quantity int, unit_price numeric}, ...]
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_order_id uuid;
+  v_subtotal numeric(10, 2) := 0;
+  v_item record;
+begin
+  select id into v_order_id from public.orders where stripe_session_id = p_stripe_session_id;
+  if v_order_id is not null then
+    return v_order_id;
+  end if;
+
+  select coalesce(sum(x.unit_price * x.quantity), 0) into v_subtotal
+  from jsonb_to_recordset(p_items) as x(variant_id uuid, quantity int, unit_price numeric);
+
+  insert into public.orders (user_id, status, subtotal, total, stripe_session_id)
+  values (p_user_id, 'pending', v_subtotal, v_subtotal, p_stripe_session_id)
+  returning id into v_order_id;
+
+  for v_item in
+    select x.variant_id, x.quantity, x.unit_price, p.name as product_name, pv.size, pv.color
+    from jsonb_to_recordset(p_items) as x(variant_id uuid, quantity int, unit_price numeric)
+    join public.product_variants pv on pv.id = x.variant_id
+    join public.products p on p.id = pv.product_id
+  loop
+    insert into public.order_items (order_id, variant_id, quantity, unit_price, product_name, variant_label)
+    values (v_order_id, v_item.variant_id, v_item.quantity, v_item.unit_price, v_item.product_name,
+            v_item.size || ' / ' || v_item.color);
+
+    -- Payment already succeeded by the time this runs -- floor at 0
+    -- instead of rejecting, since the order can't be un-charged here.
+    update public.product_variants
+    set stock_quantity = greatest(stock_quantity - v_item.quantity, 0)
+    where id = v_item.variant_id;
+  end loop;
+
+  return v_order_id;
+end;
+$$;
+

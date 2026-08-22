@@ -63,6 +63,7 @@ export type Database = {
           total: number;
           shipping_address: unknown | null;
           promotion_id: string | null;
+          stripe_session_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -76,6 +77,7 @@ export type Database = {
           total?: number;
           shipping_address?: unknown | null;
           promotion_id?: string | null;
+          stripe_session_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -89,6 +91,7 @@ export type Database = {
           total?: number;
           shipping_address?: unknown | null;
           promotion_id?: string | null;
+          stripe_session_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -484,6 +487,10 @@ export type Database = {
       };
       checkout_cart: {
         Args: { p_cart_id: string; p_shipping_address: unknown };
+        Returns: string;
+      };
+      record_paid_order: {
+        Args: { p_user_id: string; p_stripe_session_id: string; p_items: unknown };
         Returns: string;
       };
     };

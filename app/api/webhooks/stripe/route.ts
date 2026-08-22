@@ -37,14 +37,39 @@ export async function POST(request: Request) {
     // Sessions created before login-required checkout have no user to
     // attribute the order to -- skip recording rather than erroring.
     if (userId) {
-      const total = (session.amount_total ?? 0) / 100;
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+        limit: 100,
+        expand: ["data.price.product"],
+      });
+
+      const items = lineItems.data
+        .map((li) => {
+          const product = li.price?.product;
+          const variantId =
+            product && typeof product === "object" && !("deleted" in product && product.deleted)
+              ? (product as Stripe.Product).metadata?.variantId
+              : undefined;
+
+          if (!variantId || !li.price) return null;
+
+          return {
+            variant_id: variantId,
+            quantity: li.quantity ?? 1,
+            unit_price: li.price.unit_amount != null ? li.price.unit_amount / 100 : 0,
+          };
+        })
+        .filter((item): item is { variant_id: string; quantity: number; unit_price: number } => item !== null);
+
+      if (items.length === 0) {
+        console.error("Checkout session had no recognizable variant line items:", session.id);
+        return NextResponse.json({ error: "No items to record." }, { status: 500 });
+      }
 
       const admin = createAdminClient();
-      const { error } = await admin.from("orders").insert({
-        user_id: userId,
-        status: "pending",
-        subtotal: total,
-        total,
+      const { error } = await admin.rpc("record_paid_order", {
+        p_user_id: userId,
+        p_stripe_session_id: session.id,
+        p_items: items,
       });
 
       if (error) {

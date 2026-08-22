@@ -112,6 +112,9 @@ export async function POST(request: NextRequest) {
         product_data: {
           name: `${product.name} (${variant.size})`,
           images: [imageUrl.startsWith("http") ? imageUrl : `${origin}${imageUrl}`],
+          // Read back by the webhook to record order_items and decrement
+          // stock for the exact variant that was actually paid for.
+          metadata: { variantId: variant.id },
         },
       },
     });
