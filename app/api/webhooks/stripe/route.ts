@@ -65,11 +65,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "No items to record." }, { status: 500 });
       }
 
+      const promotionId = session.metadata?.promotionId || null;
+      const discountTotal = (session.total_details?.amount_discount ?? 0) / 100;
+
       const admin = createAdminClient();
       const { error } = await admin.rpc("record_paid_order", {
         p_user_id: userId,
         p_stripe_session_id: session.id,
         p_items: items,
+        p_promotion_id: promotionId,
+        p_discount_total: discountTotal,
       });
 
       if (error) {

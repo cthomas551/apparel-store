@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Your bag is empty." }, { status: 400 });
   }
 
+  const promoCodeRaw = (body as { promoCode?: unknown })?.promoCode;
+  const promoCode = typeof promoCodeRaw === "string" && promoCodeRaw.trim().length > 0 ? promoCodeRaw.trim() : null;
+
   const origin = request.nextUrl.origin;
 
   // Price, name, and image always come from our own catalog, never from the
@@ -120,12 +123,45 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Promo code is optional and never trusted for its discount amount from
+  // the client -- looked up fresh and checked here, same as pricing above.
+  let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+  let promotionId: string | null = null;
+
+  if (promoCode) {
+    const { data: promo } = await supabase.from("promotions").select("*").eq("code", promoCode).single();
+
+    const now = new Date();
+    const isValid =
+      !!promo &&
+      promo.active &&
+      (!promo.starts_at || new Date(promo.starts_at) <= now) &&
+      (!promo.ends_at || new Date(promo.ends_at) >= now) &&
+      (promo.max_uses == null || promo.times_used < promo.max_uses);
+
+    if (!promo || !isValid) {
+      return NextResponse.json({ error: "That promo code isn't valid." }, { status: 400 });
+    }
+
+    promotionId = promo.id;
+
+    const coupon = await stripe.coupons.create(
+      promo.discount_type === "percent"
+        ? { percent_off: Number(promo.discount_value), duration: "once" }
+        : { amount_off: Math.round(Number(promo.discount_value) * 100), currency: "usd", duration: "once" }
+    );
+
+    discounts = [{ coupon: coupon.id }];
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       client_reference_id: user.id,
       customer_email: user.email,
       line_items: lineItems,
+      discounts,
+      metadata: promotionId ? { promotionId } : undefined,
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/store?checkout=cancelled`,
     });

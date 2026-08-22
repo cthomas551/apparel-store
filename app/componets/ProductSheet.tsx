@@ -55,6 +55,47 @@ type SheetVariant = {
   stockQuantity: number;
 };
 
+export type SheetReview = {
+  id: string;
+  userId: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+};
+
+function IconStar({ filled, className = "h-4 w-4" }: { filled: boolean; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.4}>
+      <path
+        d="M12 3.5 L14.8 9.2 L21 10.1 L16.5 14.5 L17.6 20.7 L12 17.7 L6.4 20.7 L7.5 14.5 L3 10.1 L9.2 9.2 Z"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function StarPicker({ value, onChange }: { value: number; onChange: (rating: number) => void }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          className="text-[#141414] transition-colors"
+        >
+          <IconStar filled={n <= value} className="h-5 w-5" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function formatReviewDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
 function IconHeart({ filled, className = "h-4 w-4" }: { filled: boolean; className?: string }) {
   return (
     <svg
@@ -86,6 +127,9 @@ export default function ProductSheet({
   onAddToBag,
   isFavorite,
   onToggleFavorite,
+  reviews,
+  currentUserId,
+  onSubmitReview,
 }: {
   product: SheetProduct;
   variants?: SheetVariant[];
@@ -94,11 +138,22 @@ export default function ProductSheet({
   onAddToBag: (size: Size) => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  reviews?: SheetReview[];
+  currentUserId?: string | null;
+  onSubmitReview?: (rating: number, body: string) => void;
 }) {
   const [selectedSize, setSelectedSize] = useState<Size | null>(null);
   const [mounted, setMounted] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const galleryRef = useRef<HTMLDivElement | null>(null);
+
+  const myReview = reviews?.find((r) => r.userId === currentUserId) ?? null;
+  // null = untouched this session -- fall back to the user's existing
+  // review (or blank) rather than a separate effect to seed the draft.
+  const [draftRating, setDraftRating] = useState<number | null>(null);
+  const [draftBody, setDraftBody] = useState<string | null>(null);
+  const effectiveRating = draftRating ?? myReview?.rating ?? 0;
+  const effectiveBody = draftBody ?? myReview?.body ?? "";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -108,6 +163,8 @@ export default function ProductSheet({
       setMounted(false);
       setSelectedSize(null);
       setActiveImage(0);
+      setDraftRating(null);
+      setDraftBody(null);
     };
   }, [isOpen]);
 
@@ -276,6 +333,65 @@ export default function ProductSheet({
                 })}
               </div>
             </div>
+
+            {reviews && (
+              <div className="flex flex-col gap-4 border-t border-[#E2E1DD] pt-5">
+                <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
+                  Reviews {reviews.length > 0 && `(${reviews.length})`}
+                </span>
+
+                {reviews.length === 0 ? (
+                  <p className="text-[13px] text-[#141414]/45">No reviews yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {reviews.map((r) => (
+                      <div key={r.id} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-0.5 text-[#141414]">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <IconStar key={n} filled={n <= r.rating} className="h-3.5 w-3.5" />
+                            ))}
+                          </div>
+                          <span className="text-[11px] text-[#141414]/40">{formatReviewDate(r.createdAt)}</span>
+                        </div>
+                        {r.body && <p className="text-[13px] leading-relaxed text-[#141414]/70">{r.body}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {onSubmitReview &&
+                  (currentUserId ? (
+                    <div className="flex flex-col gap-3 pt-1">
+                      <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
+                        {myReview ? "Edit your review" : "Write a review"}
+                      </span>
+                      <StarPicker value={effectiveRating} onChange={setDraftRating} />
+                      <textarea
+                        value={effectiveBody}
+                        onChange={(e) => setDraftBody(e.target.value)}
+                        placeholder="Share your thoughts (optional)"
+                        rows={3}
+                        className="w-full rounded-xl border border-[#E2E1DD] px-3 py-2 text-[13px] text-[#141414] placeholder:text-[#141414]/35 focus:outline-none focus:border-[#141414]/40"
+                      />
+                      <button
+                        type="button"
+                        disabled={effectiveRating === 0}
+                        onClick={() => onSubmitReview(effectiveRating, effectiveBody.trim())}
+                        className={`self-start rounded-full px-5 py-2 text-[11px] tracking-[0.2em] uppercase transition-colors ${
+                          effectiveRating === 0
+                            ? "bg-[#141414]/15 text-[#141414]/40 cursor-not-allowed"
+                            : "bg-[#141414] text-[#FAFAF8] hover:bg-[#141414]/90"
+                        }`}
+                      >
+                        {myReview ? "Update Review" : "Submit Review"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-[#141414]/45">Log in to leave a review.</p>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
 

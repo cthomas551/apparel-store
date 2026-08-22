@@ -556,3 +556,81 @@ begin
 end;
 $$;
 
+-- =========================================================
+-- 13. PROMO CODES AT CHECKOUT (phase 5)
+-- =========================================================
+-- Adds promo code support to record_paid_order() -- redeclared once
+-- more, identical to section 12's version except for the two new
+-- optional params. The discount amount is passed in from the webhook
+-- (recovered from what Stripe actually charged), not recomputed from
+-- promotions here, so the record stays accurate even if a code's
+-- value changes between checkout and payment confirmation.
+-- times_used only increments here, at payment-confirmation time, so
+-- an abandoned checkout never burns a use of a limited code.
+--
+-- Postgres treats a changed parameter list as a distinct overload, not
+-- a replacement -- create or replace alone would leave the old 3-arg
+-- version sitting alongside this one instead of retiring it. Drop it
+-- explicitly first so there's only ever one record_paid_order.
+-- =========================================================
+
+drop function if exists public.record_paid_order(uuid, text, jsonb);
+
+create or replace function public.record_paid_order(
+  p_user_id uuid,
+  p_stripe_session_id text,
+  p_items jsonb, -- [{variant_id uuid, quantity int, unit_price numeric}, ...]
+  p_promotion_id uuid default null,
+  p_discount_total numeric default 0
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_order_id uuid;
+  v_subtotal numeric(10, 2) := 0;
+  v_item record;
+begin
+  select id into v_order_id from public.orders where stripe_session_id = p_stripe_session_id;
+  if v_order_id is not null then
+    return v_order_id;
+  end if;
+
+  select coalesce(sum(x.unit_price * x.quantity), 0) into v_subtotal
+  from jsonb_to_recordset(p_items) as x(variant_id uuid, quantity int, unit_price numeric);
+
+  insert into public.orders (user_id, status, subtotal, discount_total, total, promotion_id, stripe_session_id)
+  values (
+    p_user_id, 'pending', v_subtotal, p_discount_total, v_subtotal - p_discount_total,
+    p_promotion_id, p_stripe_session_id
+  )
+  returning id into v_order_id;
+
+  if p_promotion_id is not null then
+    update public.promotions set times_used = times_used + 1 where id = p_promotion_id;
+  end if;
+
+  for v_item in
+    select x.variant_id, x.quantity, x.unit_price, p.name as product_name, pv.size, pv.color
+    from jsonb_to_recordset(p_items) as x(variant_id uuid, quantity int, unit_price numeric)
+    join public.product_variants pv on pv.id = x.variant_id
+    join public.products p on p.id = pv.product_id
+  loop
+    insert into public.order_items (order_id, variant_id, quantity, unit_price, product_name, variant_label)
+    values (v_order_id, v_item.variant_id, v_item.quantity, v_item.unit_price, v_item.product_name,
+            v_item.size || ' / ' || v_item.color);
+
+    update public.product_variants
+    set stock_quantity = greatest(stock_quantity - v_item.quantity, 0)
+    where id = v_item.variant_id;
+  end loop;
+
+  delete from public.cart_items
+  where cart_id = (select id from public.carts where user_id = p_user_id);
+
+  return v_order_id;
+end;
+$$;
+

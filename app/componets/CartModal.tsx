@@ -27,10 +27,11 @@ export default function CartModal({
   onClose: () => void;
   onUpdateQuantity: (key: string, quantity: number) => void;
   onRemove: (key: string) => void;
-  onCheckout: () => void;
+  onCheckout: (promoCode?: string) => void;
   isCheckingOut?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -156,6 +157,13 @@ export default function CartModal({
 
         {items.length > 0 && (
           <div className="px-6 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] border-t border-[#E2E1DD] shrink-0 flex flex-col gap-4">
+            <input
+              type="text"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              placeholder="Promo code (optional)"
+              className="w-full rounded-full border border-[#E2E1DD] px-4 py-2.5 text-[12px] tracking-wide text-[#141414] placeholder:text-[#141414]/35 focus:outline-none focus:border-[#141414]/40"
+            />
             <div className="flex items-center justify-between">
               <span className="text-[11px] tracking-[0.24em] uppercase text-[#141414]/50">
                 Subtotal
@@ -165,7 +173,7 @@ export default function CartModal({
               </span>
             </div>
             <button
-              onClick={onCheckout}
+              onClick={() => onCheckout(promoCode.trim() || undefined)}
               disabled={isCheckingOut}
               className={`h-13 py-3.5 rounded-full text-[11px] tracking-[0.24em] uppercase transition-colors ${
                 isCheckingOut

@@ -490,7 +490,13 @@ export type Database = {
         Returns: string;
       };
       record_paid_order: {
-        Args: { p_user_id: string; p_stripe_session_id: string; p_items: unknown };
+        Args: {
+          p_user_id: string;
+          p_stripe_session_id: string;
+          p_items: unknown;
+          p_promotion_id?: string | null;
+          p_discount_total?: number;
+        };
         Returns: string;
       };
     };

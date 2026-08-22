@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import ProductSheet from "./ProductSheet";
+import ProductSheet, { type SheetReview } from "./ProductSheet";
 import CartModal, { type CartItem } from "./CartModal";
 import type { Category, Product } from "@/lib/products";
 import { resolveCartItem } from "@/lib/cart";
@@ -59,6 +59,24 @@ function GarmentArt({ category }: { category: Category }) {
         </svg>
       );
   }
+}
+
+function RatingBadge({
+  rating,
+  className = "",
+}: {
+  rating: { average: number; count: number } | null;
+  className?: string;
+}) {
+  if (!rating) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] ${className}`}>
+      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" stroke="currentColor" strokeWidth={1.2}>
+        <path d="M12 3.5 L14.8 9.2 L21 10.1 L16.5 14.5 L17.6 20.7 L12 17.7 L6.4 20.7 L7.5 14.5 L3 10.1 L9.2 9.2 Z" />
+      </svg>
+      {rating.average.toFixed(1)} ({rating.count})
+    </span>
+  );
 }
 
 function IconSearch({ className = "h-5 w-5" }: { className?: string }) {
@@ -119,6 +137,7 @@ export default function StoreApp({ products }: { products: Product[] }) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [productReviews, setProductReviews] = useState<SheetReview[]>([]);
   const bagCount = bagItems.reduce((sum, item) => sum + item.quantity, 0);
   const router = useRouter();
 
@@ -224,6 +243,65 @@ export default function StoreApp({ products }: { products: Product[] }) {
       cancelled = true;
     };
   }, [user, products, ensureCartId]);
+
+  // Reviews are only fetched for the product currently open in the
+  // drawer, not for every product on page load.
+  useEffect(() => {
+    if (!selectedProduct) return;
+
+    const supabase = createClient();
+    let cancelled = false;
+
+    supabase
+      .from("product_reviews")
+      .select("id, user_id, rating, body, created_at")
+      .eq("product_id", selectedProduct.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to load reviews:", error);
+          return;
+        }
+        if (cancelled || !data) return;
+        setProductReviews(
+          data.map((r) => ({
+            id: r.id,
+            userId: r.user_id,
+            rating: r.rating,
+            body: r.body,
+            createdAt: r.created_at,
+          }))
+        );
+      });
+
+    return () => {
+      cancelled = true;
+      setProductReviews([]);
+    };
+  }, [selectedProduct?.id]);
+
+  async function submitReview(rating: number, body: string) {
+    if (!user || !selectedProduct) return;
+
+    const { data, error } = await createClient()
+      .from("product_reviews")
+      .upsert(
+        { product_id: selectedProduct.id, user_id: user.id, rating, body: body || null },
+        { onConflict: "product_id,user_id" }
+      )
+      .select("id, user_id, rating, body, created_at")
+      .single();
+
+    if (error || !data) {
+      console.error("Failed to submit review:", error);
+      return;
+    }
+
+    setProductReviews((prev) => [
+      { id: data.id, userId: data.user_id, rating: data.rating, body: data.body, createdAt: data.created_at },
+      ...prev.filter((r) => r.userId !== user.id),
+    ]);
+  }
 
   async function toggleFavorite(productId: string) {
     if (!user) {
@@ -374,6 +452,10 @@ export default function StoreApp({ products }: { products: Product[] }) {
                     >
                       {product.price}
                     </span>
+                    <RatingBadge
+                      rating={product.rating}
+                      className={darkHero ? "text-[#FAFAF8]/65" : "text-[#141414]/50"}
+                    />
                   </div>
 
                   <span
@@ -554,7 +636,10 @@ export default function StoreApp({ products }: { products: Product[] }) {
                     {product.categoryLabel}
                   </span>
                   <span className="font-serif text-lg leading-snug">{product.name}</span>
-                  <span className="text-[13px] tracking-wide text-[#141414]/70">{product.price}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] tracking-wide text-[#141414]/70">{product.price}</span>
+                    <RatingBadge rating={product.rating} className="text-[#141414]/45" />
+                  </div>
                 </div>
               </button>
               );
@@ -586,6 +671,9 @@ export default function StoreApp({ products }: { products: Product[] }) {
           onClose={() => setSelectedProduct(null)}
           isFavorite={!!user && favoriteIds.has(selectedProduct.id)}
           onToggleFavorite={() => toggleFavorite(selectedProduct.id)}
+          reviews={productReviews}
+          currentUserId={user?.id ?? null}
+          onSubmitReview={submitReview}
           onAddToBag={(size) => {
             const product = selectedProduct;
             const variant = product.variants.find((v) => v.size === size);
@@ -625,13 +713,13 @@ export default function StoreApp({ products }: { products: Product[] }) {
           if (item) removePersistedCartItem(item.variantId);
         }}
         isCheckingOut={checkingOut}
-        onCheckout={async () => {
+        onCheckout={async (promoCode) => {
           setCheckingOut(true);
           try {
             const res = await fetch("/api/checkout", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items: bagItems }),
+              body: JSON.stringify({ items: bagItems, promoCode }),
             });
             const data = await res.json();
 
@@ -647,7 +735,7 @@ export default function StoreApp({ products }: { products: Product[] }) {
             window.location.href = data.url;
           } catch (err) {
             console.error(err);
-            alert("Something went wrong starting checkout. Please try again.");
+            alert(err instanceof Error ? err.message : "Something went wrong starting checkout. Please try again.");
           } finally {
             setCheckingOut(false);
           }

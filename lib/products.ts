@@ -25,6 +25,7 @@ export type Product = {
   description?: string;
   details?: { label: string; value: string }[];
   variants: ProductVariant[];
+  rating: { average: number; count: number } | null;
 };
 
 // Maps the database's category taxonomy (categories.slug) to the
@@ -41,17 +42,26 @@ const CATEGORY_MAP: Record<string, { category: Category; categoryLabel: string }
 };
 
 export async function getActiveProducts(supabase: SupabaseClient<Database>): Promise<Product[]> {
-  const [{ data: products }, { data: images }, { data: variants }, { data: categories }] =
+  const [{ data: products }, { data: images }, { data: variants }, { data: categories }, { data: reviews }] =
     await Promise.all([
       supabase.from("products").select("*").eq("status", "active").order("name"),
       supabase.from("product_images").select("*").order("sort_order"),
       supabase.from("product_variants").select("*"),
       supabase.from("categories").select("*"),
+      supabase.from("product_reviews").select("product_id, rating"),
     ]);
 
   if (!products) return [];
 
   const categoryById = new Map((categories ?? []).map((c) => [c.id, c]));
+
+  const ratingByProductId = new Map<string, { total: number; count: number }>();
+  for (const r of reviews ?? []) {
+    const entry = ratingByProductId.get(r.product_id) ?? { total: 0, count: 0 };
+    entry.total += r.rating;
+    entry.count += 1;
+    ratingByProductId.set(r.product_id, entry);
+  }
 
   return products.map((p): Product => {
     const category = p.category_id ? categoryById.get(p.category_id) : undefined;
@@ -76,6 +86,8 @@ export async function getActiveProducts(supabase: SupabaseClient<Database>): Pro
         stockQuantity: v.stock_quantity,
       }));
 
+    const ratingEntry = ratingByProductId.get(p.id);
+
     return {
       id: p.id,
       name: p.name,
@@ -89,6 +101,7 @@ export async function getActiveProducts(supabase: SupabaseClient<Database>): Pro
       description: p.description ?? undefined,
       details: (p.details as { label: string; value: string }[] | null) ?? undefined,
       variants: productVariants,
+      rating: ratingEntry ? { average: ratingEntry.total / ratingEntry.count, count: ratingEntry.count } : null,
     };
   });
 }
