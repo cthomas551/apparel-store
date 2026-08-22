@@ -363,7 +363,7 @@ export type Database = {
           id: string;
           code: string;
           description: string | null;
-          discount_type: "percent" | "fixed";
+          discount_type: "percentage" | "fixed";
           discount_value: number;
           starts_at: string | null;
           ends_at: string | null;
@@ -376,7 +376,7 @@ export type Database = {
           id?: string;
           code: string;
           description?: string | null;
-          discount_type: "percent" | "fixed";
+          discount_type: "percentage" | "fixed";
           discount_value: number;
           starts_at?: string | null;
           ends_at?: string | null;
@@ -389,7 +389,7 @@ export type Database = {
           id?: string;
           code?: string;
           description?: string | null;
-          discount_type?: "percent" | "fixed";
+          discount_type?: "percentage" | "fixed";
           discount_value?: number;
           starts_at?: string | null;
           ends_at?: string | null;

@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     promotionId = promo.id;
 
     const coupon = await stripe.coupons.create(
-      promo.discount_type === "percent"
+      promo.discount_type === "percentage"
         ? { percent_off: Number(promo.discount_value), duration: "once" }
         : { amount_off: Math.round(Number(promo.discount_value) * 100), currency: "usd", duration: "once" }
     );
